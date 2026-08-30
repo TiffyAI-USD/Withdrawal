@@ -162,12 +162,12 @@
         <div><strong>Wallet:</strong> <span id="walletAddressDisplay">Not Connected</span></div>
         <div><strong>BNB Gas Balance:</strong> <span id="bnbBalanceDisplay" style="color:#ff00ff;">0.00000000 BNB</span></div>
         <hr style="border-color: rgba(0,255,255,0.3); margin: 8px 0;">
-        <div><strong>Terminal Tiffy:</strong> <span id="terminalTIFFYDisplay">5.00</span></div>
-        <div><strong>TUSD-Nitro Terminal:</strong> <span id="nitroTerminalDisplay">9.00</span></div>
-        <div><strong>On-Chain Wallet Savings (TUSD):</strong> <span id="walletSavingsDisplay">178965700.19</span></div>
-        <div><strong>TiffyAI Wallet Savings:</strong> <span id="tiffyWalletSavingsDisplay">8680993.69</span></div>
+        <div><strong>Terminal Tiffy:</strong> <span id="terminalTIFFYDisplay">0.00</span></div>
+        <div><strong>TUSD-Nitro Terminal:</strong> <span id="nitroTerminalDisplay">0.00</span></div>
+        <div><strong>On-Chain Wallet Savings (TUSD):</strong> <span id="walletSavingsDisplay">0.00</span></div>
+        <div><strong>TiffyAI Wallet Savings:</strong> <span id="tiffyWalletSavingsDisplay">0.00</span></div>
         <hr style="border-color: #0ff; margin: 8px 0;">
-        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">109.00 TUSD</span></div>
+        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">0.00 TUSD</span></div>
         <button id="withdrawBtn" class="btn withdraw-btn">Consolidate & Withdraw</button>
       </div>
     </div>
@@ -334,19 +334,19 @@
         }
 
         function loadBalances() {
-            terminalTiffyVal = parseFloat(localStorage.getItem('Tiffy_Harvest_Pending') || "5.00");
-            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Storage') || "9.00");
+            terminalTiffyVal = parseFloat(localStorage.getItem('Tiffy_Harvest_Pending') || "0.00");
+            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Storage') || "0.00");
             
             let savedWallet = getSavedBusinessWallet();
             if (savedWallet) {
-                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || "178965700.19");
-                onChainTiffyVal = parseFloat(localStorage.getItem('Tiffy_OnChain_Wallet_Balance') || "8680993.69");
+                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || "0.00");
+                onChainTiffyVal = parseFloat(localStorage.getItem('Tiffy_OnChain_Wallet_Balance') || "0.00");
                 E.walletAddressDisplay.textContent = `${savedWallet.substring(0, 6)}...${savedWallet.substring(savedWallet.length - 4)}`;
                 fetchFullWalletState(savedWallet);
             } else {
-                E.walletAddressDisplay.textContent = "0x2a23...0255";
-                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || "178965700.19");
-                onChainTiffyVal = parseFloat(localStorage.getItem('Tiffy_OnChain_Wallet_Balance') || "8680993.69");
+                E.walletAddressDisplay.textContent = "Not Connected";
+                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || "0.00");
+                onChainTiffyVal = parseFloat(localStorage.getItem('Tiffy_OnChain_Wallet_Balance') || "0.00");
             }
             
             const tiffyInTusdValue = terminalTiffyVal * TIFFY_TO_TUSD_RATE;
@@ -376,8 +376,8 @@
                 return;
             }
 
-            const reportTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || "178965700.19");
-            const reportTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || "8680993.69");
+            const reportTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || "0.00");
+            const reportTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || "0.00");
 
             const tusdDifference = reportTusdVal - onChainTusdVal;
             const tiffyDifference = reportTiffyVal - onChainTiffyVal;
