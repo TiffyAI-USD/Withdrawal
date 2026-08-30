@@ -409,7 +409,8 @@
                     deepLink = `https://metamask.app.link/dapp/${fullUrl.replace(/^https?:\/\//, '')}`; 
                     break;
                 case 'trust': 
-                    deepLink = `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(fullUrl)}`; 
+                    // Clean browser view target so it doesn't instantly auto-navigate and error out on launch
+                    deepLink = `https://link.trustwallet.com/browser?url=${encodeURIComponent(fullUrl)}`; 
                     break;
                 case 'okx': 
                     deepLink = `okx://wallet/dapp/details?dappUrl=${encodeURIComponent(fullUrl)}`; 
@@ -419,16 +420,16 @@
                     break;
             }
 
-            // One-Tap Bridge: copies the link to the clipboard and immediately triggers app launch intent
+            // One-Tap Bridge: copies link to clipboard first, then opens clean browser interface
             const modalHtml = `
                 <div style="font-size:12px; color:#0ff; margin-bottom:12px; text-align:left;">
-                Ready! Click below to automatically copy your secure bridge link and open <b>${walletType.toUpperCase()}</b>. If the browser is empty, just paste it once inside the app.
+                Link copied! Click below to open <b>${walletType.toUpperCase()}</b>. Paste the link into its DApp browser search bar to connect.
                 </div>
                 <input type="text" readonly value="${fullUrl}" id="copyLinkBox" style="width:100%; padding:10px; background:#111; border:1px solid #0ff; color:#fff; border-radius:8px; font-size:11px; text-align:center; margin-bottom:12px;" onclick="this.select();">
                 <button class="modal-btn" onclick="
                     navigator.clipboard.writeText(document.getElementById('copyLinkBox').value);
                     window.location.href = '${deepLink}';
-                " style="background:#00ff0033; border-color:#00ff00; color:#00ff00; font-weight:bold;">📋 Copy Link & Open Wallet</button>
+                " style="background:#00ff0033; border-color:#00ff00; color:#00ff00; font-weight:bold;">📋 Copy & Open Clean Browser</button>
             `;
 
             showModal("One-Tap Secure Bridge", modalHtml, []);
