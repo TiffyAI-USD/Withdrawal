@@ -163,11 +163,11 @@
         <div><strong>BNB Gas Balance:</strong> <span id="bnbBalanceDisplay" style="color:#ff00ff;">0.00000000 BNB</span></div>
         <hr style="border-color: rgba(0,255,255,0.3); margin: 8px 0;">
         <div><strong>Terminal Tiffy:</strong> <span id="terminalTIFFYDisplay">0.00</span></div>
-        <div><strong>TUSD-Nitro Terminal:</strong> <span id="nitroTerminalDisplay">10.00</span></div>
+        <div><strong>TUSD-Nitro Terminal:</strong> <span id="nitroTerminalDisplay">0.00</span></div>
         <div><strong>On-Chain Wallet Savings (TUSD):</strong> <span id="walletSavingsDisplay">0.00</span></div>
         <div><strong>TiffyAI Wallet Savings:</strong> <span id="tiffyWalletSavingsDisplay">0.00</span></div>
         <hr style="border-color: #0ff; margin: 8px 0;">
-        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">10.00 TUSD</span></div>
+        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">0.00 TUSD</span></div>
         <button id="withdrawBtn" class="btn withdraw-btn">Consolidate & Withdraw</button>
       </div>
     </div>
@@ -334,8 +334,9 @@
         }
 
         function loadBalances() {
-            terminalTiffyVal = parseFloat(localStorage.getItem('Tiffy_Harvest_Pending') || "0.00");
-            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Storage') || "10.00");
+            // FIXED: Point directly to the exact keys used by the main banking terminal UI
+            terminalTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Tokens') || localStorage.getItem('Tiffy_Harvest_Pending') || "0.00");
+            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Terminal') || localStorage.getItem('TUSD_Nitro_Storage') || "0.00");
             
             let savedWallet = getSavedBusinessWallet();
             if (savedWallet) {
@@ -505,8 +506,8 @@
                     }).catch(e => console.error("Backend log failed:", e));
                 }
 
-                localStorage.setItem('Tiffy_Harvest_Pending', "0.00");
-                localStorage.setItem('TUSD_Nitro_Storage', "10.00");
+                localStorage.setItem('TiffyAI_Tokens', "0.00");
+                localStorage.setItem('TUSD_Nitro_Terminal', "0.00");
                 
                 showModal("Consolidation Complete!", "✅ Report, withdrawable amounts, and on-chain balances synchronized successfully.", null, 'success-message');
             } catch (e) {
@@ -527,7 +528,7 @@
                 showModal(errorTitle, errorMessage, null, 'error-message');
             } finally {
                 E.withdrawBtn.disabled = false;
-                E.withdrawBtn.textContent = "Consolidate & Withdraw";
+                E.withdrawBtn.textContent = "Consolidation & Withdraw";
                 E.processingBar.style.display = 'none';
                 loadBalances();
             }
