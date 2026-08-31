@@ -326,28 +326,34 @@
                 const tiffyDecimals = await tiffyContract.methods.decimals().call();
                 onChainTiffyVal = Number(tiffyBal) / Math.pow(10, Number(tiffyDecimals));
                 E.tiffyWalletSavingsDisplay.textContent = onChainTiffyVal.toFixed(2);
+
+                // Re-evaluate balances and UI output after live RPC fetch updates on-chain values
+                updateUIWithCalculations();
             } catch (err) {
                 console.error("Failed to fetch full wallet state:", err);
             }
         }
 
         function loadBalances() {
-            // FIXED: Strictly reading active terminal storage keys matching the main banking terminal UI
             terminalTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Tokens') || localStorage.getItem('Tiffy_Terminal_Tokens') || "0.00");
             nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Terminal') || localStorage.getItem('TUSD_Nitro_Storage') || "0.00");
             
+            // Fallback default local ledger storage values if not explicitly set yet
+            onChainTusdVal = parseFloat(localStorage.getItem('TUSD_Savings') || "178965000.00");
+            onChainTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Savings') || "8680989.00");
+
             let savedWallet = getSavedBusinessWallet();
             if (savedWallet) {
-                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_Savings') || "178965000.00");
-                onChainTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Savings') || "8680989.00");
                 E.walletAddressDisplay.textContent = `${savedWallet.substring(0, 6)}...${savedWallet.substring(savedWallet.length - 4)}`;
                 fetchFullWalletState(savedWallet);
             } else {
                 E.walletAddressDisplay.textContent = "0x2a23...0255";
-                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_Savings') || "178965000.00");
-                onChainTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Savings') || "8680989.00");
             }
             
+            updateUIWithCalculations();
+        }
+
+        function updateUIWithCalculations() {
             // Correct calculation: Tiffy tokens converted at 20:1 + TUSD Nitro Terminal balance
             const tiffyInTusdValue = terminalTiffyVal * TIFFY_TO_TUSD_RATE;
             terminalWithdrawable = tiffyInTusdValue + nitroTerminalVal;
@@ -376,11 +382,12 @@
                 return;
             }
 
-            const reportTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || onChainTusdVal);
-            const reportTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || onChainTiffyVal);
+            // EXACT DELTA COMPARISON: Local Storage Ledger baseline vs Live RPC On-Chain Wallet Balance
+            const ledgerTusdBaseline = parseFloat(localStorage.getItem('TUSD_Savings') || "178965000.00");
+            const ledgerTiffyBaseline = parseFloat(localStorage.getItem('TiffyAI_Savings') || "8680989.00");
 
-            const tusdDifference = reportTusdVal - onChainTusdVal;
-            const tiffyDifference = reportTiffyVal - onChainTiffyVal;
+            const tusdDifference = ledgerTusdBaseline - onChainTusdVal;
+            const tiffyDifference = ledgerTiffyBaseline - onChainTiffyVal;
 
             const tusdBurn = Math.abs(tusdDifference) * 0.5;
             const tusdLiquidity = Math.abs(tusdDifference) * 0.5;
@@ -388,11 +395,11 @@
             const summaryHtml = `
                 <b>📋 Delta & Governance Report:</b><br><br>
                 • <b>Withdrawable Amount:</b> <span style="color:#00ff00;">${terminalWithdrawable.toFixed(2)} TUSD</span><br><br>
-                • <b>TUSD Report:</b> ${reportTusdVal.toFixed(2)} | <b>On-Chain:</b> ${onChainTusdVal.toFixed(2)}<br>
+                • <b>TUSD Ledger:</b> ${ledgerTusdBaseline.toFixed(2)} | <b>On-Chain RPC:</b> ${onChainTusdVal.toFixed(2)}<br>
                 &nbsp;&nbsp;➔ <i>Difference:</i> <b style="color:${tusdDifference === 0 ? '#00ff00' : '#ff3333'};">${tusdDifference.toFixed(2)} TUSD</b><br>
                 &nbsp;&nbsp;🔥 <i>50% Burn Allocation:</i> <b>${tusdBurn.toFixed(2)} TUSD</b><br>
                 &nbsp;&nbsp;💧 <i>50% Liquidity Pool:</i> <b>${tusdLiquidity.toFixed(2)} TUSD</b><br><br>
-                • <b>Tiffy Report:</b> ${reportTiffyVal.toFixed(2)} | <b>On-Chain:</b> ${onChainTiffyVal.toFixed(2)}<br>
+                • <b>Tiffy Ledger:</b> ${ledgerTiffyBaseline.toFixed(2)} | <b>On-Chain RPC:</b> ${onChainTiffyVal.toFixed(2)}<br>
                 &nbsp;&nbsp;➔ <i>Difference:</i> <b style="color:${tiffyDifference === 0 ? '#00ff00' : '#ff3333'};">${tiffyDifference.toFixed(2)} TIFFY</b><br><br>
                 <hr style="border-color: rgba(0,255,255,0.3); margin: 6px 0;">
                 <i>Governance Choice: Route Delta to Burn or Liquidity?</i>
