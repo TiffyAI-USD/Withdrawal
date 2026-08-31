@@ -334,9 +334,8 @@
         }
 
         function loadBalances() {
-            // FIXED: Point directly to the exact keys used by the main banking terminal UI
-            terminalTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Tokens') || localStorage.getItem('Tiffy_Harvest_Pending') || "0.00");
-            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Terminal') || localStorage.getItem('TUSD_Nitro_Storage') || "0.00");
+            terminalTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Tokens') || "0.00");
+            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Terminal') || "0.00");
             
             let savedWallet = getSavedBusinessWallet();
             if (savedWallet) {
@@ -377,24 +376,24 @@
                 return;
             }
 
-            const reportTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || onChainTusdVal);
-            const reportTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || onChainTiffyVal);
+            const baselineTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || onChainTusdVal);
+            const baselineTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || 8680993.69);
 
-            const tusdDifference = reportTusdVal - onChainTusdVal;
-            const tiffyDifference = reportTiffyVal - onChainTiffyVal;
+            const tusdSpentDifference = baselineTusdVal - onChainTusdVal;
+            const tiffySpentDifference = baselineTiffyVal - terminalTiffyVal;
 
-            const tusdBurn = Math.abs(tusdDifference) * 0.5;
-            const tusdLiquidity = Math.abs(tusdDifference) * 0.5;
+            const tusdBurn = Math.abs(tiffySpentDifference) * 0.5;
+            const tusdLiquidity = Math.abs(tiffySpentDifference) * 0.5;
             
             const summaryHtml = `
                 <b>📋 Delta & Governance Report:</b><br><br>
                 • <b>Withdrawable Amount:</b> <span style="color:#00ff00;">${terminalWithdrawable.toFixed(2)} TUSD</span><br><br>
-                • <b>TUSD Report:</b> ${reportTusdVal.toFixed(2)} | <b>On-Chain:</b> ${onChainTusdVal.toFixed(2)}<br>
-                &nbsp;&nbsp;➔ <i>Difference:</i> <b style="color:${tusdDifference === 0 ? '#00ff00' : '#ff3333'};">${tusdDifference.toFixed(2)} TUSD</b><br>
-                &nbsp;&nbsp;🔥 <i>50% Burn Allocation:</i> <b>${tusdBurn.toFixed(2)} TUSD</b><br>
-                &nbsp;&nbsp;💧 <i>50% Liquidity Pool:</i> <b>${tusdLiquidity.toFixed(2)} TUSD</b><br><br>
-                • <b>Tiffy Report:</b> ${reportTiffyVal.toFixed(2)} | <b>On-Chain:</b> ${onChainTiffyVal.toFixed(2)}<br>
-                &nbsp;&nbsp;➔ <i>Difference:</i> <b style="color:${tiffyDifference === 0 ? '#00ff00' : '#ff3333'};">${tiffyDifference.toFixed(2)} TIFFY</b><br><br>
+                • <b>Original Baseline Tiffy:</b> ${baselineTiffyVal.toFixed(2)}<br>
+                • <b>Current Terminal Tiffy:</b> ${terminalTiffyVal.toFixed(2)}<br>
+                &nbsp;&nbsp;➔ <i>Spent Difference:</i> <b style="color:#ff3333;">${tiffySpentDifference.toFixed(2)} TIFFY</b><br><br>
+                • <b>Original Baseline TUSD:</b> ${baselineTusdVal.toFixed(2)}<br>
+                • <b>Current Terminal TUSD:</b> ${onChainTusdVal.toFixed(2)}<br>
+                &nbsp;&nbsp;➔ <i>Spent Difference:</i> <b style="color:#ff3333;">${tusdSpentDifference.toFixed(2)} TUSD</b><br><br>
                 <hr style="border-color: rgba(0,255,255,0.3); margin: 6px 0;">
                 <i>Governance Choice: Route Delta to Burn or Liquidity?</i>
             `;
