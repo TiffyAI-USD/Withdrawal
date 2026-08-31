@@ -334,7 +334,7 @@
         }
 
         function loadBalances() {
-            terminalTiffyVal = parseFloat(localStorage.getItem('Tiffy_Terminal_Tokens') || localStorage.getItem('Tiffy_Harvest_Pending') || "0.00");
+            terminalTiffyVal = parseFloat(localStorage.getItem('Tiffy_Harvest_Pending') || "0.00");
             nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Storage') || "10.00");
             
             let savedWallet = getSavedBusinessWallet();
@@ -505,9 +505,8 @@
                     }).catch(e => console.error("Backend log failed:", e));
                 }
 
-                localStorage.setItem('Tiffy_Terminal_Tokens', "0.00");
                 localStorage.setItem('Tiffy_Harvest_Pending', "0.00");
-                localStorage.setItem('TUSD_Nitro_Storage', "0.00");
+                localStorage.setItem('TUSD_Nitro_Storage', "10.00");
                 
                 showModal("Consolidation Complete!", "✅ Report, withdrawable amounts, and on-chain balances synchronized successfully.", null, 'success-message');
             } catch (e) {
