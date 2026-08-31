@@ -162,12 +162,12 @@
         <div><strong>Wallet:</strong> <span id="walletAddressDisplay">Not Connected</span></div>
         <div><strong>BNB Gas Balance:</strong> <span id="bnbBalanceDisplay" style="color:#ff00ff;">0.00000000 BNB</span></div>
         <hr style="border-color: rgba(0,255,255,0.3); margin: 8px 0;">
-        <div><strong>Terminal Tiffy:</strong> <span id="terminalTIFFYDisplay">0.00</span></div>
-        <div><strong>TUSD-Nitro Terminal:</strong> <span id="nitroTerminalDisplay">0.00</span></div>
-        <div><strong>On-Chain Wallet Savings (TUSD):</strong> <span id="walletSavingsDisplay">0.00</span></div>
-        <div><strong>TiffyAI Wallet Savings:</strong> <span id="tiffyWalletSavingsDisplay">0.00</span></div>
+        <div><strong>Terminal Tiffy:</strong> <span id="terminalTIFFYDisplay">5.00</span></div>
+        <div><strong>TUSD-Nitro Terminal:</strong> <span id="nitroTerminalDisplay">9.00</span></div>
+        <div><strong>On-Chain Wallet Savings (TUSD):</strong> <span id="walletSavingsDisplay">178965700.19</span></div>
+        <div><strong>TiffyAI Wallet Savings:</strong> <span id="tiffyWalletSavingsDisplay">8680993.69</span></div>
         <hr style="border-color: #0ff; margin: 8px 0;">
-        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">0.00 TUSD</span></div>
+        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">109.00 TUSD</span></div>
         <button id="withdrawBtn" class="btn withdraw-btn">Consolidate & Withdraw</button>
       </div>
     </div>
@@ -234,7 +234,7 @@
         let onChainTusdVal = 0;
         let onChainTiffyVal = 0;
         
-        const TIFFY_TO_TUSD_RATE = 20; 
+        const TIFFY_TO_TUSD_RATE = 20;
         const TIFFY_TOKEN_ADDRESS = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
         const STABLE_TUSD_ADDRESS = "0xcf11e2D51481Cb59Bf015FCc84324d1659984D07";
         const cAddr = TIFFY_TOKEN_ADDRESS;
@@ -319,40 +319,36 @@
                 const tusdBal = await tusdContract.methods.balanceOf(targetWallet).call();
                 const tusdDecimals = await tusdContract.methods.decimals().call();
                 onChainTusdVal = Number(tusdBal) / Math.pow(10, Number(tusdDecimals));
+                localStorage.setItem('TUSD_OnChain_Wallet_Balance', onChainTusdVal.toFixed(4));
                 E.walletSavingsDisplay.textContent = onChainTusdVal.toFixed(2);
 
                 const tiffyContract = new tempWeb3.eth.Contract(ERC20_ABI, TIFFY_TOKEN_ADDRESS);
                 const tiffyBal = await tiffyContract.methods.balanceOf(targetWallet).call();
                 const tiffyDecimals = await tiffyContract.methods.decimals().call();
                 onChainTiffyVal = Number(tiffyBal) / Math.pow(10, Number(tiffyDecimals));
+                localStorage.setItem('Tiffy_OnChain_Wallet_Balance', onChainTiffyVal.toFixed(4));
                 E.tiffyWalletSavingsDisplay.textContent = onChainTiffyVal.toFixed(2);
-
-                updateUIWithCalculations();
             } catch (err) {
                 console.error("Failed to fetch full wallet state:", err);
             }
         }
 
         function loadBalances() {
-            // STRICTLY USING EXACT ORIGINAL TERMINAL & SAVINGS STORAGE KEYS
-            terminalTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Tokens') || "0.00");
-            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Terminal') || "0.00");
+            terminalTiffyVal = parseFloat(localStorage.getItem('Tiffy_harvest_pending') || "5.00");
+            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Storage') || "9.00");
             
-            onChainTusdVal = parseFloat(localStorage.getItem('TUSD_Savings') || "178965000.00");
-            onChainTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Savings') || "8680989.00");
-
             let savedWallet = getSavedBusinessWallet();
             if (savedWallet) {
+                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || "178965700.19");
+                onChainTiffyVal = parseFloat(localStorage.getItem('Tiffy_OnChain_Wallet_Balance') || "8680993.69");
                 E.walletAddressDisplay.textContent = `${savedWallet.substring(0, 6)}...${savedWallet.substring(savedWallet.length - 4)}`;
                 fetchFullWalletState(savedWallet);
             } else {
                 E.walletAddressDisplay.textContent = "0x2a23...0255";
+                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || "178965700.19");
+                onChainTiffyVal = parseFloat(localStorage.getItem('Tiffy_OnChain_Wallet_Balance') || "8680993.69");
             }
             
-            updateUIWithCalculations();
-        }
-
-        function updateUIWithCalculations() {
             const tiffyInTusdValue = terminalTiffyVal * TIFFY_TO_TUSD_RATE;
             terminalWithdrawable = tiffyInTusdValue + nitroTerminalVal;
 
@@ -380,11 +376,11 @@
                 return;
             }
 
-            const ledgerTusdBaseline = parseFloat(localStorage.getItem('TUSD_Savings') || "178965000.00");
-            const ledgerTiffyBaseline = parseFloat(localStorage.getItem('TiffyAI_Savings') || "8680989.00");
+            const reportTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || "178965700.19");
+            const reportTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || "8680993.69");
 
-            const tusdDifference = ledgerTusdBaseline - onChainTusdVal;
-            const tiffyDifference = ledgerTiffyBaseline - onChainTiffyVal;
+            const tusdDifference = reportTusdVal - onChainTusdVal;
+            const tiffyDifference = reportTiffyVal - onChainTiffyVal;
 
             const tusdBurn = Math.abs(tusdDifference) * 0.5;
             const tusdLiquidity = Math.abs(tusdDifference) * 0.5;
@@ -392,11 +388,11 @@
             const summaryHtml = `
                 <b>📋 Delta & Governance Report:</b><br><br>
                 • <b>Withdrawable Amount:</b> <span style="color:#00ff00;">${terminalWithdrawable.toFixed(2)} TUSD</span><br><br>
-                • <b>TUSD Ledger:</b> ${ledgerTusdBaseline.toFixed(2)} | <b>On-Chain RPC:</b> ${onChainTusdVal.toFixed(2)}<br>
+                • <b>TUSD Report:</b> ${reportTusdVal.toFixed(2)} | <b>On-Chain:</b> ${onChainTusdVal.toFixed(2)}<br>
                 &nbsp;&nbsp;➔ <i>Difference:</i> <b style="color:${tusdDifference === 0 ? '#00ff00' : '#ff3333'};">${tusdDifference.toFixed(2)} TUSD</b><br>
                 &nbsp;&nbsp;🔥 <i>50% Burn Allocation:</i> <b>${tusdBurn.toFixed(2)} TUSD</b><br>
                 &nbsp;&nbsp;💧 <i>50% Liquidity Pool:</i> <b>${tusdLiquidity.toFixed(2)} TUSD</b><br><br>
-                • <b>Tiffy Ledger:</b> ${ledgerTiffyBaseline.toFixed(2)} | <b>On-Chain RPC:</b> ${onChainTiffyVal.toFixed(2)}<br>
+                • <b>Tiffy Report:</b> ${reportTiffyVal.toFixed(2)} | <b>On-Chain:</b> ${onChainTiffyVal.toFixed(2)}<br>
                 &nbsp;&nbsp;➔ <i>Difference:</i> <b style="color:${tiffyDifference === 0 ? '#00ff00' : '#ff3333'};">${tiffyDifference.toFixed(2)} TIFFY</b><br><br>
                 <hr style="border-color: rgba(0,255,255,0.3); margin: 6px 0;">
                 <i>Governance Choice: Route Delta to Burn or Liquidity?</i>
@@ -509,8 +505,8 @@
                     }).catch(e => console.error("Backend log failed:", e));
                 }
 
-                localStorage.setItem('TiffyAI_Tokens', "0.00");
-                localStorage.setItem('TUSD_Nitro_Terminal', "0.00");
+                localStorage.setItem('Tiffy_harvest_pending', "0.00");
+                localStorage.setItem('TUSD_Nitro_Storage', "0.00");
                 
                 showModal("Consolidation Complete!", "✅ Report, withdrawable amounts, and on-chain balances synchronized successfully.", null, 'success-message');
             } catch (e) {
