@@ -234,7 +234,7 @@
         let onChainTusdVal = 0;
         let onChainTiffyVal = 0;
         
-        const TIFFY_TO_TUSD_RATE = 20; // 1 TIFFY = 20 USD/TUSD
+        const TIFFY_TO_TUSD_RATE = 20; 
         const TIFFY_TOKEN_ADDRESS = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
         const STABLE_TUSD_ADDRESS = "0xcf11e2D51481Cb59Bf015FCc84324d1659984D07";
         const cAddr = TIFFY_TOKEN_ADDRESS;
@@ -327,7 +327,6 @@
                 onChainTiffyVal = Number(tiffyBal) / Math.pow(10, Number(tiffyDecimals));
                 E.tiffyWalletSavingsDisplay.textContent = onChainTiffyVal.toFixed(2);
 
-                // Re-evaluate balances and UI output after live RPC fetch updates on-chain values
                 updateUIWithCalculations();
             } catch (err) {
                 console.error("Failed to fetch full wallet state:", err);
@@ -335,10 +334,10 @@
         }
 
         function loadBalances() {
-            terminalTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Tokens') || localStorage.getItem('Tiffy_Terminal_Tokens') || "0.00");
-            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Terminal') || localStorage.getItem('TUSD_Nitro_Storage') || "0.00");
+            // STRICTLY USING EXACT ORIGINAL TERMINAL & SAVINGS STORAGE KEYS
+            terminalTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Tokens') || "0.00");
+            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Terminal') || "0.00");
             
-            // Fallback default local ledger storage values if not explicitly set yet
             onChainTusdVal = parseFloat(localStorage.getItem('TUSD_Savings') || "178965000.00");
             onChainTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Savings') || "8680989.00");
 
@@ -354,7 +353,6 @@
         }
 
         function updateUIWithCalculations() {
-            // Correct calculation: Tiffy tokens converted at 20:1 + TUSD Nitro Terminal balance
             const tiffyInTusdValue = terminalTiffyVal * TIFFY_TO_TUSD_RATE;
             terminalWithdrawable = tiffyInTusdValue + nitroTerminalVal;
 
@@ -382,7 +380,6 @@
                 return;
             }
 
-            // EXACT DELTA COMPARISON: Local Storage Ledger baseline vs Live RPC On-Chain Wallet Balance
             const ledgerTusdBaseline = parseFloat(localStorage.getItem('TUSD_Savings') || "178965000.00");
             const ledgerTiffyBaseline = parseFloat(localStorage.getItem('TiffyAI_Savings') || "8680989.00");
 
@@ -512,7 +509,6 @@
                     }).catch(e => console.error("Backend log failed:", e));
                 }
 
-                // Clear terminal session storage keys upon successful withdrawal
                 localStorage.setItem('TiffyAI_Tokens', "0.00");
                 localStorage.setItem('TUSD_Nitro_Terminal', "0.00");
                 
