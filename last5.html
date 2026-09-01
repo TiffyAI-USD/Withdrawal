@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Smart Terminal & Decentralized Consolidation</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <!-- Pinned stable Web3 version -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.4/dist/web3.min.js"></script>
+    <style>
+        body {
+            background: url('set.jpg') center center/cover no-repeat fixed;
+            color: #0ff;
+            font-family: 'Orbitron', sans-serif;
+            text-align: center;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        h1 {
+            text-shadow: 0 0 20px #00faff, 0 0 40px #00faff;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .card {
+            background: rgba(0, 0, 0, 0.45);
+            padding: 20px;
+            border: 1px solid #0ff;
+            border-radius: 16px;
+            display: inline-block;
+            box-shadow: 0 0 25px #0ff, inset 0 0 40px rgba(0, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            margin-top: 10px;
+            min-width: 320px;
+            max-width: 440px;
+        }
+
+        .card div {
+            margin-top: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .btn {
+            margin-top: 15px;
+            padding: 12px 25px;
+            font-size: 16px;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .withdraw-btn {
+            background: rgba(147, 255, 20, 0.15);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            box-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00;
+            animation: pulseGreen 1.5s infinite;
+        }
+
+        @keyframes pulseGreen {
+            0% { box-shadow: 0 0 15px #00ff00; }
+            50% { box-shadow: 0 0 40px #00ff00; }
+            100% { box-shadow: 0 0 15px #00ff00; }
+        }
+
+        .app-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+
+        .modal-inner {
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #00ffff;
+            border-radius: 20px;
+            padding: 25px 20px;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 0 20px #ff00ff;
+        }
+        
+        .modal-btn {
+            display: block;
+            width: 100%;
+            margin: 10px auto;
+            padding: 12px;
+            font-size: 14px;
+            color: white;
+            background-color: #111111;
+            border: 1px solid #00ffff;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .modal-btn:hover { background: #00ffff33; }
+
+        .close-modal {
+            color: #ff00ff;
+            font-size: 14px;
+            margin-top: 12px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .error-message { color: #ff3333; text-shadow: 0 0 8px #ff3333; }
+        .success-message { color: #00ff00; text-shadow: 0 0 8px #00ff00; }
+
+        #processing-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 12px 0;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            font-size: 1.1em;
+            text-shadow: 0 0 10px #00ff00;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 0 15px #00ff00;
+            border-bottom: 1px solid #00ff00;
+        }
+
+        .processing-text {
+            color: #00ff00 !important;
+            text-shadow: 0 0 10px #00ff00;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 Smart Terminal & Banking Overview</h1>
+    <div id="processing-bar"></div>
+    <audio id="clickSound" src="click.wav" preload="auto"></audio>
+    
+    <div id="main-content" style="display: none;">
+      <div class="card">
+        <div><strong>Wallet:</strong> <span id="walletAddressDisplay">Not Connected</span></div>
+        <div><strong>BNB Gas Balance:</strong> <span id="bnbBalanceDisplay" style="color:#ff00ff;">0.00000000 BNB</span></div>
+        <hr style="border-color: #0ff; margin: 8px 0;">
+        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">Calculated Live...</span></div>
+        <button id="withdrawBtn" class="btn withdraw-btn">Consolidate & Withdraw</button>
+      </div>
+    </div>
+    
+    <div class="app-modal" id="appModal">
+        <div class="modal-inner">
+            <h3 id="modalTitle" style="color:#00ffff; text-shadow:0 0 10px #00ffff; margin-top:0;"></h3>
+            <div id="modalMessage" style="margin: 15px 0; font-size:12px; line-height:1.5; text-align:left;"></div>
+            <button class="modal-btn" id="modalBtn1" style="display:none;"></button>
+            <button class="modal-btn" id="modalBtn2" style="display:none;"></button>
+            <button class="modal-btn" id="modalBtn3" style="display:none;"></button>
+            <div id="modalCloseBtn" class="close-modal">Close</div>
+        </div>
+    </div>
+
+    <script>
+        function showModal(title, messageHtml, buttons, messageClass = '') {
+            const modal = document.getElementById('appModal');
+            document.getElementById('modalTitle').textContent = title;
+            const modalMessageElement = document.getElementById('modalMessage');
+            modalMessageElement.innerHTML = messageHtml;
+            modalMessageElement.className = messageClass;
+
+            const btns = [document.getElementById('modalBtn1'), document.getElementById('modalBtn2'), document.getElementById('modalBtn3')];
+            btns.forEach(btn => {
+                btn.style.display = 'none';
+                btn.onclick = null;
+            });
+            
+            if (buttons && buttons.length > 0) {
+                buttons.forEach((btn, index) => {
+                    const modalBtn = btns[index];
+                    modalBtn.textContent = btn.text;
+                    modalBtn.onclick = btn.handler;
+                    modalBtn.style.display = 'block';
+                });
+            }
+
+            document.getElementById('modalCloseBtn').onclick = () => {
+                try { E.clickSound.play(); } catch(e){}
+                modal.style.display = 'none';
+            };
+            modal.style.display = 'flex';
+        }
+
+        const E = {
+            clickSound: document.getElementById('clickSound'),
+            mainContent: document.getElementById('main-content'),
+            withdrawBtn: document.getElementById('withdrawBtn'),
+            walletAddressDisplay: document.getElementById('walletAddressDisplay'),
+            bnbBalanceDisplay: document.getElementById('bnbBalanceDisplay'),
+            totalWithdrawableDisplay: document.getElementById('totalWithdrawableDisplay'),
+            processingBar: document.getElementById('processing-bar')
+        };
+        
+        let web3, account, contract, tusdContract, routerCoinContract, pairContract, provider;
+        let terminalWithdrawable = 0;
+        let livePairRate = 20; // Default fallback ratio
+        let selectedGovernanceAction = 'standard';
+        
+        // Contract Addresses
+        const ROUTER_COIN_ADDRESS = "0xEc3C2cF9c9C97983AC251AaB31e13C7855fCEedc";
+        const STABLE_TUSD_ADDRESS = "0xcf11e2D51481Cb59Bf015FCc84324d1659984D07";
+        const TIFFY_TOKEN_ADDRESS = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
+        const LIQUIDITY_PAIR_ADDRESS = "0x859f7dc6c5bd2fb75a765cbba63a071941cdb2ac";
+        const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
+        const cAddr = TIFFY_TOKEN_ADDRESS;
+        
+        const BSC_RPCS = [
+            "https://bsc-dataseed1.binance.org/",
+            "https://bsc-dataseed.binance.org/",
+            "https://rpc.ankr.com/bsc"
+        ];
+
+        function getRobustWeb3() {
+            for (let rpc of BSC_RPCS) {
+                try { return new Web3(rpc); } catch(e) {}
+            }
+            return new Web3("https://bsc-dataseed1.binance.org/");
+        }
+        
+        const ABI = [
+            {"inputs":[],"name":"claim","outputs":[],"stateMutability":"payable", "type":"function"},
+            {"inputs":[],"name":"FIXED_BNB_FEE","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}
+        ];
+        const ERC20_ABI = [
+            {"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function", "stateMutability": "view"},
+            {"constant": true, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "type": "function", "stateMutability": "view"},
+            {"constant": false, "inputs": [{"name": "amount", "type": "uint256"}], "name": "burn", "outputs": [], "type": "function", "stateMutability": "nonpayable"},
+            {"constant": false, "inputs": [{"name": "recipient", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function", "stateMutability": "nonpayable"}
+        ];
+        const PAIR_ABI = [
+            {"constant": true, "inputs": [], "name": "getReserves", "outputs": [{"name": "_reserve0", "type": "uint112"}, {"name": "_reserve1", "type": "uint112"}, {"name": "_blockTimestampLast", "type": "uint32"}], "type": "function", "stateMutability": "view"},
+            {"constant": true, "inputs": [], "name": "token0", "outputs": [{"name": "", "type": "address"}], "type": "function", "stateMutability": "view"},
+            {"constant": true, "inputs": [], "name": "token1", "outputs": [{"name": "", "type": "address"}], "type": "function", "stateMutability": "view"}
+        ];
+
+        const DEEPLINK_BASE_URL = window.location.href.split('?')[0];
+
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('button, .modal-btn, .close-modal')) {
+                try { E.clickSound.play(); } catch(e){}
+            }
+        });
+
+        function getSavedBusinessWallet() {
+            let savedWallet = localStorage.getItem("walletAddress");
+            if (!savedWallet) {
+                const profile = JSON.parse(localStorage.getItem("Tiffy_Matchmaker_Profile") || "{}");
+                savedWallet = profile.walletAddress;
+            }
+            return savedWallet || "";
+        }
+
+        async function getEthereumProvider(timeoutMs = 35000) {
+            return new Promise((resolve) => {
+                const existingProvider = window.ethereum || window.trustwallet || window.okxwallet;
+                if (existingProvider) return resolve(existingProvider);
+
+                let resolved = false;
+                const handleInjectionEvent = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        resolve(window.ethereum || window.trustwallet || window.okxwallet || null);
+                    }
+                };
+
+                window.addEventListener('ethereum#initialized', handleInjectionEvent, { once: true });
+                window.addEventListener('trustwallet#initialized', handleInjectionEvent, { once: true });
+
+                const startTime = Date.now();
+                const interval = setInterval(() => {
+                    const p = window.ethereum || window.trustwallet || window.okxwallet;
+                    if (p) {
+                        if (!resolved) { resolved = true; clearInterval(interval); resolve(p); }
+                    } else if (Date.now() - startTime > timeoutMs) {
+                        if (!resolved) { resolved = true; clearInterval(interval); resolve(null); }
+                    }
+                }, 250);
+            });
+        }
+
+        async function fetchLivePairReserves() {
+            try {
+                const tempWeb3 = getRobustWeb3();
+                const tempPairContract = new tempWeb3.eth.Contract(PAIR_ABI, LIQUIDITY_PAIR_ADDRESS);
+                const reserves = await tempPairContract.methods.getReserves().call();
+                const token0 = await tempPairContract.methods.token0().call();
+                
+                let tiffyReserve, otherReserve;
+                if (token0.toLowerCase() === TIFFY_TOKEN_ADDRESS.toLowerCase()) {
+                    tiffyReserve = Number(reserves._reserve0);
+                    otherReserve = Number(reserves._reserve1);
+                } else {
+                    tiffyReserve = Number(reserves._reserve1);
+                    otherReserve = Number(reserves._reserve0);
+                }
+
+                if (tiffyReserve > 0) {
+                    livePairRate = otherReserve / tiffyReserve;
+                }
+            } catch (err) {
+                console.warn("Could not fetch live pair reserves, using default ratio:", err);
+            }
+        }
+
+        async function fetchFullWalletState(targetWallet) {
+            if (!targetWallet || targetWallet.length !== 42) return;
+            try {
+                const tempWeb3 = getRobustWeb3();
+                const weiBalance = await tempWeb3.eth.getBalance(targetWallet);
+                E.bnbBalanceDisplay.textContent = `${parseFloat(tempWeb3.utils.fromWei(weiBalance, 'ether')).toFixed(8)} BNB`;
+
+                const tempTusdContract = new tempWeb3.eth.Contract(ERC20_ABI, STABLE_TUSD_ADDRESS);
+                const tusdBal = await tempTusdContract.methods.balanceOf(targetWallet).call();
+                const tusdDecimals = await tempTusdContract.methods.decimals().call();
+                const onChainTusdVal = Number(tusdBal) / Math.pow(10, Number(tusdDecimals));
+                localStorage.setItem('TUSD_OnChain_Wallet_Balance', onChainTusdVal.toFixed(4));
+
+                const tempTiffyContract = new tempWeb3.eth.Contract(ERC20_ABI, TIFFY_TOKEN_ADDRESS);
+                const tiffyBal = await tempTiffyContract.methods.balanceOf(targetWallet).call();
+                const tiffyDecimals = await tempTiffyContract.methods.decimals().call();
+                const onChainTiffyVal = Number(tiffyBal) / Math.pow(10, Number(tiffyDecimals));
+                localStorage.setItem('Tiffy_OnChain_Wallet_Balance', onChainTiffyVal.toFixed(4));
+            } catch (err) {
+                console.error("Failed to fetch full wallet state:", err);
+            }
+        }
+
+        async function loadBalances() {
+            await fetchLivePairReserves();
+
+            const baselineTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || 7.00);
+            const baselineTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || 15.48);
+            
+            let savedWallet = getSavedBusinessWallet();
+            if (savedWallet) {
+                E.walletAddressDisplay.textContent = `\( {savedWallet.substring(0, 6)}... \){savedWallet.substring(savedWallet.length - 4)}`;
+                fetchFullWalletState(savedWallet);
+            } else {
+                E.walletAddressDisplay.textContent = "Not Connected";
+            }
+
+            const baselineTiffyInTusd = baselineTiffyVal * livePairRate;
+            terminalWithdrawable = baselineTiffyInTusd + baselineTusdVal;
+
+            E.totalWithdrawableDisplay.textContent = terminalWithdrawable.toFixed(2) + " TUSD";
+            E.totalWithdrawableDisplay.classList.remove('processing-text');
+
+            if (terminalWithdrawable <= 0) {
+                E.withdrawBtn.disabled = true;
+                E.withdrawBtn.textContent = "No Funds to Withdraw";
+            } else {
+                E.withdrawBtn.disabled = false;
+                E.withdrawBtn.textContent = "Consolidate & Withdraw";
+            }
+        }
+
+        function openWalletPopup() {
+            if (terminalWithdrawable <= 0) {
+                showModal("No Funds", "There are no funds to withdraw.", null);
+                return;
+            }
+
+            const baselineTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || 7.00);
+            const baselineTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || 15.48);
+
+            const tusdSpentDifference = baselineTusdVal - 9.00;
+            const tiffySpentDifference = baselineTiffyVal - 8680993.69;
+
+            const summaryHtml = `
+                <b>📋 Live On-Chain Delta Report:</b><br><br>
+                • <b>Withdrawable Amount:</b> <span style="color:#00ff00;">${terminalWithdrawable.toFixed(2)} TUSD</span><br>
+                • <b>Live Pair Ratio:</b> 1 TIFFY = ${livePairRate.toFixed(4)} TUSD<br><br>
+                • <b>Original Baseline Tiffy:</b> ${baselineTiffyVal.toFixed(2)}<br>
+                • <b>Current Terminal Tiffy:</b> 8680993.69<br>
+                &nbsp;&nbsp;➔ <i>Spent Difference:</i> <b style="color:#ff3333;">${tiffySpentDifference.toFixed(2)} TIFFY</b><br><br>
+                • <b>Original Baseline TUSD:</b> ${baselineTusdVal.toFixed(2)}<br>
+                • <b>Current Terminal TUSD:</b> 9.00<br>
+                &nbsp;&nbsp;➔ <i>Spent Difference:</i> <b style="color:#ff3333;">${tusdSpentDifference.toFixed(2)} TUSD</b><br><br>
+                <hr style="border-color: rgba(0,255,255,0.3); margin: 6px 0;">
+                <i>Governance Choice: Route Delta via Token 1 Router or Standard Bridge?</i>
+            `;
+
+            showModal("Governance Delta Report", summaryHtml, [
+                { text: "Route via Token 1 Router (Burn)", handler: () => executeGovernanceAction('burn', terminalWithdrawable) },
+                { text: "Route via Token 1 Router (Liquidity)", handler: () => executeGovernanceAction('liquidity', terminalWithdrawable) },
+                { text: "Standard Wallet Bridge", handler: () => selectDestinationWallet(terminalWithdrawable, 'standard') }
+            ]);
+        }
+
+        function executeGovernanceAction(actionType, amount) {
+            selectedGovernanceAction = actionType;
+            document.getElementById('appModal').style.display = 'none';
+            const actionLabel = actionType === 'burn' ? 'Token Burn' : 'Liquidity Addition';
+            showModal("Governance Recorded", `✅ Your vote to route delta funds through Token 1 router for <b>${actionLabel}</b> has been registered successfully. Proceeding to wallet bridge...`, [
+                { text: "Proceed to Bridge", handler: () => selectDestinationWallet(amount, actionType) }
+            ], 'success-message');
+        }
+
+        function selectDestinationWallet(amount, actionType) {
+            selectedGovernanceAction = actionType || 'standard';
+            const summaryHtml = `
+                <div style="font-size:12px; color:#0ff; margin-bottom:12px; text-align:left;">
+                Select your destination wallet to execute the secure decentralized bridge link:
+                </div>
+            `;
+            showModal("Select Destination Wallet", summaryHtml, [
+                { text: "MetaMask", handler: () => triggerDeepLink('metamask', amount) },
+                { text: "Trust Wallet", handler: () => triggerDeepLink('trust', amount) },
+                { text: "OKX Wallet", handler: () => triggerDeepLink('okx', amount) }
+            ]);
+        }
+
+        function triggerDeepLink(walletType, amount) {
+            document.getElementById('appModal').style.display = 'none';
+            
+            const businessWallet = getSavedBusinessWallet();
+            const fullUrl = `\( {DEEPLINK_BASE_URL}?wallet= \){walletType}&amount=\( {amount}&businessWallet= \){encodeURIComponent(businessWallet)}&action=${selectedGovernanceAction}`;
+            
+            let deepLink;
+            switch(walletType) {
+                case 'metamask': deepLink = `https://metamask.app.link/dapp/${fullUrl.replace(/^https?:\/\//, '')}`; break;
+                case 'trust': deepLink = `https://link.trustwallet.com/browser?url=${encodeURIComponent(fullUrl)}`; break;
+                case 'okx': deepLink = `okx://wallet/dapp/details?dappUrl=${encodeURIComponent(fullUrl)}`; break;
+                default: deepLink = fullUrl; break;
+            }
+
+            const modalHtml = `
+                <div style="font-size:12px; color:#0ff; margin-bottom:12px; text-align:left;">
+                Link copied! Click below to open <b>${walletType.toUpperCase()}</b>. Paste the link into its DApp browser search bar to connect.
+                </div>
+                <input type="text" readonly value="${fullUrl}" id="copyLinkBox" style="width:100%; padding:10px; background:#111; border:1px solid #0ff; color:#fff; border-radius:8px; font-size:11px; text-align:center; margin-bottom:12px;" onclick="this.select();">
+                <button class="modal-btn" onclick="
+                    navigator.clipboard.writeText(document.getElementById('copyLinkBox').value);
+                    window.location.href = '${deepLink}';
+                " style="background:#00ff0033; border-color:#00ff00; color:#00ff00; font-weight:bold;">📋 Copy & Open Clean Browser</button>
+            `;
+
+            showModal("One-Tap Secure Bridge", modalHtml, []);
+        }
+
+        async function switchToBNB() {
+            try {
+                await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x38' }] });
+                return true;
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    try {
+                        await provider.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x38', chainName: 'BNB Smart Chain',
+                                rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                                nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                                blockExplorerUrls: ['https://bscscan.com']
+                            }]
+                        });
+                        return true;
+                    } catch (addError) { 
+                        console.error("Add chain failed:", addError);
+                        return false; 
+                    }
+                }
+                console.error("Switch chain failed:", switchError);
+                return false;
+            }
+        }
+
+        async function withdraw(amount, actionType) {
+            E.withdrawBtn.disabled = true;
+            E.withdrawBtn.textContent = "Processing...";
+            E.processingBar.style.display = 'block';
+            E.processingBar.textContent = 'Part 1/2: Executing TIFFY claim contract action...';
+
+            try {
+                if (!account) { 
+                    showModal("Connection Required", "Please connect your wallet first.", null); 
+                    return; 
+                }
+
+                // Extra safety: re-check we are really on BSC
+                let chainId = await provider.request({ method: 'eth_chainId' });
+                if (chainId !== '0x38') {
+                    E.processingBar.textContent = 'Switching to BNB Smart Chain...';
+                    const switched = await switchToBNB();
+                    if (!switched) throw new Error("Failed to switch to BNB Smart Chain. Please switch manually in your wallet and try again.");
+                    
+                    // Give Trust Wallet time to finish the switch
+                    await new Promise(r => setTimeout(r, 1200));
+                    chainId = await provider.request({ method: 'eth_chainId' });
+                    if (chainId !== '0x38') {
+                        throw new Error("Still not on BNB Smart Chain after switch attempt.");
+                    }
+                }
+
+                // PART 1: Primary TIFFY Contract Claim
+                E.processingBar.textContent = 'Fetching claim fee...';
+                let contractFee;
+                try {
+                    contractFee = await contract.methods.FIXED_BNB_FEE().call();
+                    console.log("Claim fee (wei):", contractFee);
+                } catch (feeErr) {
+                    console.error("FIXED_BNB_FEE call failed:", feeErr);
+                    throw new Error("Could not read claim fee from contract. RPC may be unstable — try again in a few seconds.");
+                }
+
+                E.processingBar.textContent = 'Part 1/2: Sending claim transaction...';
+                await contract.methods.claim().send({ from: account, value: contractFee });
+                
+                // PART 2: Secondary Contract Action (Token 1 Router / TUSD Delta Burn or Liquidity)
+                if (actionType !== 'standard' && amount > 0) {
+                    E.processingBar.textContent = 'Part 2/2: Executing Token 1 Router & TUSD Delta action on-chain...';
+                    const burnAmountWei = Web3.utils.toWei(amount.toString(), 'ether');
+                    try {
+                        await tusdContract.methods.burn(burnAmountWei).send({ from: account });
+                    } catch (burnErr) {
+                        console.warn("Native burn failed, falling back to dead-address transfer:", burnErr);
+                        await tusdContract.methods.transfer(DEAD_ADDRESS, burnAmountWei).send({ from: account });
+                    }
+                }
+
+                localStorage.setItem('Tiffy_Harvest_Pending', "0.00");
+                localStorage.setItem('TiffyAI_Tokens', "0.00");
+                localStorage.setItem('TUSD_Nitro_Storage', "0.00");
+                localStorage.setItem('TUSD_Nitro_Terminal', "0.00");
+                
+                showModal("Consolidation Complete!", "✅ Fully decentralized on-chain transaction finalized successfully with zero external server dependencies.", null, 'success-message');
+            } catch (e) {
+                console.error("Full withdrawal error object:", e);
+                let errorMessage = "An unknown error occurred.";
+                let errorTitle = "Consolidation Failed";
+                
+                if (e.code === 4001 || (e.message && e.message.includes("user rejected"))) {
+                    errorMessage = "Hey what you doing? Try again and transfer your tokens!";
+                    errorTitle = "Transaction Canceled";
+                } else if (e.code === -32603 || (e.message && (e.message.includes("insufficient funds") || e.message.includes("not enough juice")))) {
+                    errorMessage = "Hey you don't have enough juice for gas fees, get some more BNB!";
+                    errorTitle = "Insufficient Funds";
+                } else if (e.message && e.message.includes("Unexpected end of JSON input")) {
+                    errorMessage = "RPC node returned an empty/invalid response (common with Trust Wallet on mobile). Please:<br>1. Make sure you are already on BNB Smart Chain<br>2. Wait 5–10 seconds<br>3. Try again<br><br>If it keeps happening, switch RPC inside Trust Wallet settings.";
+                    errorTitle = "Network / RPC Glitch";
+                } else {
+                    errorMessage = `❌ Error: ${e.message || e}`;
+                }
+
+                showModal(errorTitle, errorMessage, null, 'error-message');
+            } finally {
+                E.withdrawBtn.disabled = false;
+                E.withdrawBtn.textContent = "Consolidate & Withdraw";
+                E.processingBar.style.display = 'none';
+                loadBalances();
+            }
+        }
+
+        window.addEventListener('load', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const walletParam = params.get('wallet');
+            const amountParam = params.get('amount');
+            const businessWalletParam = params.get('businessWallet');
+            const actionParam = params.get('action') || 'standard';
+            
+            await loadBalances();
+            E.mainContent.style.display = 'block';
+
+            if (walletParam && amountParam) {
+                E.withdrawBtn.style.display = 'none';
+                E.totalWithdrawableDisplay.textContent = 'Booting Wallet App...';
+                E.totalWithdrawableDisplay.classList.add('processing-text');
+                E.processingBar.style.display = 'block';
+                E.processingBar.textContent = 'Resting 2.5s to let mobile app cache + provider inject...';
+
+                try {
+                    // Slightly longer initial settle for Trust
+                    await new Promise(resolve => setTimeout(resolve, 2500));
+
+                    E.processingBar.textContent = 'Waiting for mobile webview provider injection...';
+                    provider = await getEthereumProvider(40000);
+                    
+                    if (!provider) throw new Error("Wallet provider took too long to inject. Please open this DApp browser link directly inside your wallet app.");
+                    
+                    // Extra settle after provider appears
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+
+                    web3 = new Web3(provider);
+
+                    E.processingBar.textContent = 'Switching to BNB Chain...';
+                    if (!(await switchToBNB())) {
+                        throw new Error("Failed to switch to BNB chain. Please switch manually in the wallet and reopen the link.");
+                    }
+
+                    // Critical: give Trust time to finish chain change
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+
+                    // Verify we are actually on BSC
+                    const chainId = await provider.request({ method: 'eth_chainId' });
+                    if (chainId !== '0x38') {
+                        throw new Error("Wallet is still not on BNB Smart Chain. Please switch manually and try again.");
+                    }
+
+                    E.processingBar.textContent = 'Requesting active wallet account...';
+                    const accounts = await provider.request({ method: 'eth_requestAccounts' });
+                    account = accounts[0];
+
+                    if (businessWalletParam && account.toLowerCase() !== businessWalletParam.toLowerCase()) {
+                        E.processingBar.style.display = 'none';
+                        showModal(
+                            "Wrong Business Wallet!", 
+                            "Hey, do you realize this is not the wallet you were doing business with? This one cannot consolidate your spendings unfortunately. Not possible. First connect to the wallet address you were using for business—make sure it's active in your wallet app and try again.", 
+                            null, 
+                            'error-message'
+                        );
+                        E.totalWithdrawableDisplay.textContent = 'Consolidation Aborted.';
+                        E.totalWithdrawableDisplay.classList.add('processing-text');
+                        return;
+                    }
+
+                    E.walletAddressDisplay.textContent = `\( {account.substring(0, 6)}... \){account.substring(account.length - 4)}`;
+                    await fetchFullWalletState(account);
+                    
+                    E.processingBar.textContent = 'Wallet connected! Initializing smart contracts...';
+                    E.totalWithdrawableDisplay.textContent = 'Ready to Consolidate';
+
+                    contract = new web3.eth.Contract(ABI, cAddr);
+                    tusdContract = new web3.eth.Contract(ERC20_ABI, STABLE_TUSD_ADDRESS);
+                    routerCoinContract = new web3.eth.Contract(ERC20_ABI, ROUTER_COIN_ADDRESS);
+                    pairContract = new web3.eth.Contract(PAIR_ABI, LIQUIDITY_PAIR_ADDRESS);
+                    
+                    // Final short settle before sending tx
+                    await new Promise(resolve => setTimeout(resolve, 800));
+
+                    await withdraw(parseFloat(amountParam), actionParam);
+                } catch (e) {
+                    console.error("Connection / boot error:", e);
+                    showModal("Connection Error", e.message || "Something went wrong while connecting your wallet.", null, 'error-message');
+                    E.totalWithdrawableDisplay.textContent = 'Connection Failed.';
+                    E.totalWithdrawableDisplay.classList.add('processing-text');
+                } finally {
+                    E.withdrawBtn.style.display = 'block';
+                    E.processingBar.style.display = 'none';
+                    loadBalances();
+                }
+            } else {
+                E.withdrawBtn.style.display = 'block';
+            }
+        });
+
+        E.withdrawBtn.onclick = openWalletPopup;
+    </script>
+</body>
+</html>
